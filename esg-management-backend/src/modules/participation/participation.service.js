@@ -67,11 +67,30 @@ export class ParticipationService {
       throw new ApiError(HTTP_STATUS.BAD_REQUEST, `Cannot approve a request that is already ${participation.status}`);
     }
 
-    return await participationRepository.update(participationId, {
+    const updated = await participationRepository.update(participationId, {
       status: PARTICIPATION_STATUS.APPROVED,
       points: participation.activity.points,
       approvedBy: adminId,
     });
+
+    // Notify employee
+    try {
+      const { NotificationService } = await import('../notification/notification.service.js');
+      const notificationService = new NotificationService();
+      await notificationService.createNotification({
+        userId: participation.employee,
+        title: 'CSR Participation Approved',
+        message: `Your participation in "${participation.activity?.title || 'CSR Activity'}" has been approved. ${participation.activity?.points || 0} Points Awarded.`,
+        module: 'Social',
+        referenceId: participation._id,
+        priority: 'Normal',
+        type: 'INFO'
+      });
+    } catch (err) {
+      console.error('Failed to trigger CSR participation approval notification:', err.message);
+    }
+
+    return updated;
   }
 
   /**
@@ -95,11 +114,30 @@ export class ParticipationService {
       throw new ApiError(HTTP_STATUS.BAD_REQUEST, `Cannot reject a request that is already ${participation.status}`);
     }
 
-    return await participationRepository.update(participationId, {
+    const updated = await participationRepository.update(participationId, {
       status: PARTICIPATION_STATUS.REJECTED,
       rejectionReason: reason,
       approvedBy: adminId,
     });
+
+    // Notify employee
+    try {
+      const { NotificationService } = await import('../notification/notification.service.js');
+      const notificationService = new NotificationService();
+      await notificationService.createNotification({
+        userId: participation.employee,
+        title: 'CSR Participation Rejected',
+        message: `Your participation in "${participation.activity?.title || 'CSR Activity'}" was rejected. Reason: ${reason}`,
+        module: 'Social',
+        referenceId: participation._id,
+        priority: 'Normal',
+        type: 'INFO'
+      });
+    } catch (err) {
+      console.error('Failed to trigger CSR participation rejection notification:', err.message);
+    }
+
+    return updated;
   }
 
   /**

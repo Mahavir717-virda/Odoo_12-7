@@ -10,7 +10,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'esg-jwt-secret-key-12345';
  * Authentication Middleware verifying JWT tokens.
  */
 export const auth = asyncHandler(async (req, res, next) => {
-  let token = req.cookies?.token || req.headers.authorization;
+  let token = req.cookies?.token || req.headers.authorization || req.query.token;
   
   if (token && token.startsWith('Bearer ')) {
     token = token.split(' ')[1];

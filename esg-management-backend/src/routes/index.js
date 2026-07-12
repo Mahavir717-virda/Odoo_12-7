@@ -21,8 +21,12 @@ import dashboardRouter from '../modules/dashboard/dashboard.route.js';
 import reportRouter from '../modules/report/report.route.js';
 import notificationRouter from '../modules/notification/notification.route.js';
 import authRouter from '../modules/auth/auth.route.js';
+import filterRouter from '../modules/filter/filter.route.js';
+
+import { NotificationController } from '../modules/notification/notification.controller.js';
 
 const router = Router();
+const notificationController = new NotificationController();
 
 // Mount modules
 router.use('/departments', departmentRouter);
@@ -44,6 +48,12 @@ router.use('/dashboard', dashboardRouter);
 router.use('/reports', reportRouter);
 router.use('/notifications', notificationRouter);
 router.use('/auth', authRouter);
+router.use('/filters', filterRouter);
+
+router.route('/notification-settings')
+  .get(notificationController.getPreferences)
+  .put(notificationController.updatePreferences)
+  .patch(notificationController.updatePreferences);
 
 /**
  * GET /api/v1
