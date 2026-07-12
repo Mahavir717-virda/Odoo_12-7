@@ -10,6 +10,7 @@ import carbonTransactionRouter from '../modules/carbon-transaction/carbonTransac
 import dropdownRouter from '../modules/dropdown/dropdown.route.js';
 import csrRouter from '../modules/csr/csr.route.js';
 import participationRouter from '../modules/participation/participation.route.js';
+import goalRouter from '../modules/sustainability-goal/goal.route.js';
 
 const router = Router();
 
@@ -20,6 +21,7 @@ router.use('/emission-factors', emissionFactorRouter);
 router.use('/product-esg-profiles', productESGProfileRouter);
 router.use('/carbon-transactions', carbonTransactionRouter);
 router.use('/dropdowns', dropdownRouter);
+router.use('/sustainability-goals', goalRouter);
 
 /**
  * GET /api/v1
