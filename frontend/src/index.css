@@ -1,4 +1,33 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap');
 @import "tailwindcss";
+
+@theme {
+  --color-bg-base: #0B1210;
+  --color-bg-card: #131A17;
+  --color-border-sage: rgba(139, 153, 146, 0.08);
+  --color-brand: #10B981;
+  --color-brand-hover: #059669;
+
+  --color-accent-env: #059669;
+  --color-accent-soc: #4F7CAC;
+  --color-accent-gov: #7C6FA8;
+  --color-accent-gam: #F59E0B;
+  --color-accent-rep: #0D9488;
+  --color-accent-set: #A8A29E;
+
+  --color-text-primary: #F5F7F5;
+  --color-text-secondary: #8B9992;
+
+  --font-display: 'Manrope', 'Space Grotesk', system-ui;
+  --font-sans: 'Inter', system-ui;
+
+  --shadow-premium-green: 0 10px 30px -10px rgba(16, 185, 129, 0.12);
+  --shadow-premium-purple: 0 10px 30px -10px rgba(124, 111, 168, 0.12);
+  --shadow-premium-blue: 0 10px 30px -10px rgba(79, 124, 172, 0.12);
+  --shadow-premium-orange: 0 10px 30px -10px rgba(245, 158, 11, 0.12);
+  --shadow-premium-teal: 0 10px 30px -10px rgba(13, 148, 136, 0.12);
+  --shadow-premium-white: 0 10px 30px -10px rgba(255, 255, 255, 0.06);
+}
 
 /* Reset and base styles */
 html,
@@ -8,8 +37,8 @@ body,
   padding: 0;
   width: 100vw;
   height: 100vh;
-  background-color: #0d0d0d;
-  color: #e0e0e0;
+  background-color: #0B1210;
+  color: #F5F7F5;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   overflow: hidden;
   box-sizing: border-box;
@@ -20,6 +49,34 @@ body,
 }
 
 h1, h2, h3, h4, h5, h6 {
-  color: #fff;
+  color: #F5F7F5;
   margin-top: 0;
+  font-family: 'Manrope', 'Inter', system-ui, sans-serif;
+}
+
+/* Custom premium visual classes */
+.bg-topographic {
+  background-image: 
+    radial-gradient(circle at 50% -20%, rgba(16, 185, 129, 0.09) 0%, transparent 60%),
+    radial-gradient(circle at 0% 100%, rgba(13, 148, 136, 0.04) 0%, transparent 40%);
+}
+
+.bg-topo-auth {
+  background-image: 
+    radial-gradient(circle at 50% 50%, rgba(16, 185, 129, 0.12) 0%, transparent 60%),
+    radial-gradient(circle at 100% 0%, rgba(13, 148, 136, 0.06) 0%, transparent 40%);
+}
+
+/* Animation utilities */
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 15s linear infinite;
 }

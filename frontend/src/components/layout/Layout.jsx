@@ -12,7 +12,8 @@ import {
   Settings as SettingsIcon, 
   Activity, 
   Compass,
-  LogOut
+  LogOut,
+  Leaf
 } from 'lucide-react';
 
 export default function Layout() {
@@ -34,82 +35,82 @@ export default function Layout() {
   const currentPath = location.pathname;
   let activeModule = 'Dashboard';
   let title = 'EcoSphere: Dashboard';
-  let liveFeedBg = 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20';
-  let liveFeedDot = 'bg-cyan-400';
+  let liveFeedBg = 'bg-brand/10 text-brand border border-brand/20';
+  let liveFeedDot = 'bg-brand';
 
   if (currentPath.startsWith('/environmental')) {
     activeModule = 'Environmental';
     title = 'EcoSphere: Environmental';
-    liveFeedBg = 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
-    liveFeedDot = 'bg-emerald-400';
+    liveFeedBg = 'bg-accent-env/10 text-accent-env border border-accent-env/20';
+    liveFeedDot = 'bg-accent-env';
   } else if (currentPath.startsWith('/social')) {
     activeModule = 'Social';
     title = 'EcoSphere: Social';
-    liveFeedBg = 'bg-[#3B82F6]/10 text-blue-400 border border-[#3B82F6]/20';
-    liveFeedDot = 'bg-blue-400';
+    liveFeedBg = 'bg-accent-soc/10 text-accent-soc border border-accent-soc/20';
+    liveFeedDot = 'bg-accent-soc';
   } else if (currentPath.startsWith('/governance')) {
     activeModule = 'Governance';
     title = 'EcoSphere: Governance';
-    liveFeedBg = 'bg-[#A855F7]/10 text-purple-400 border border-[#A855F7]/20';
-    liveFeedDot = 'bg-purple-400';
+    liveFeedBg = 'bg-accent-gov/10 text-accent-gov border border-accent-gov/20';
+    liveFeedDot = 'bg-accent-gov';
   } else if (currentPath.startsWith('/gamification')) {
     activeModule = 'Gamification';
     title = 'EcoSphere: Gamification';
-    liveFeedBg = 'bg-[#F97316]/10 text-orange-400 border border-[#F97316]/20';
-    liveFeedDot = 'bg-orange-400';
+    liveFeedBg = 'bg-accent-gam/10 text-accent-gam border border-accent-gam/20';
+    liveFeedDot = 'bg-accent-gam';
   } else if (currentPath.startsWith('/reports')) {
     activeModule = 'Reports';
     title = 'EcoSphere: Reports';
-    liveFeedBg = 'bg-[#06B6D4]/10 text-cyan-400 border border-[#06B6D4]/20';
-    liveFeedDot = 'bg-cyan-400';
+    liveFeedBg = 'bg-accent-rep/10 text-accent-rep border border-accent-rep/20';
+    liveFeedDot = 'bg-accent-rep';
   } else if (currentPath.startsWith('/settings')) {
     activeModule = 'Settings';
     title = 'EcoSphere: Settings';
-    liveFeedBg = 'bg-white/10 text-white border border-white/20';
-    liveFeedDot = 'bg-white';
+    liveFeedBg = 'bg-accent-set/10 text-accent-set border border-accent-set/20';
+    liveFeedDot = 'bg-accent-set';
   }
 
   // Sidebar Group Config
   const sidebarGroups = [
     {
       title: 'Environmental',
-      color: '#22C55E',
-      icon: <Globe className="w-4 h-4 text-emerald-400" />,
+      color: 'var(--color-accent-env)',
+      icon: <Globe className="w-4 h-4 text-accent-env" />,
       items: ['Emission Factors', 'Product ESG Profiles', 'Carbon Transactions', 'Environmental Goals'],
       path: '/environmental'
     },
     {
       title: 'Social',
-      color: '#3B82F6',
-      icon: <Users className="w-4 h-4 text-blue-400" />,
+      color: 'var(--color-accent-soc)',
+      icon: <Users className="w-4 h-4 text-accent-soc" />,
       items: ['CSR Activities', 'Employee Participation', 'Diversity Dashboard'],
       path: '/social'
     },
     {
       title: 'Governance',
-      color: '#A855F7',
-      icon: <Shield className="w-4 h-4 text-purple-400" />,
+      color: 'var(--color-accent-gov)',
+      icon: <Shield className="w-4 h-4 text-accent-gov" />,
       items: ['Policies', 'Policy Acknowledgements', 'Audits', 'Compliance Issues'],
       path: '/governance'
     },
     {
       title: 'Gamification',
-      color: '#F97316',
-      icon: <Award className="w-4 h-4 text-orange-400" />,
+      color: 'var(--color-accent-gam)',
+      icon: <Award className="w-4 h-4 text-accent-gam" />,
       items: ['Challenges', 'Challenge Participation', 'Badges', 'Rewards', 'Leaderboard'],
       path: '/gamification'
     },
     {
       title: 'Reports',
-      color: '#06B6D4',
-      icon: <FileSpreadsheet className="w-4 h-4 text-cyan-400" />,
+      color: 'var(--color-accent-rep)',
+      icon: <FileSpreadsheet className="w-4 h-4 text-accent-rep" />,
       items: ['Environmental Report', 'Social Report', 'Governance Report', 'ESG Summary', 'Custom Report Builder'],
       path: '/reports'
     },
     {
       title: 'Settings',
-      color: '#9CA3AF',
-      icon: <SettingsIcon className="w-4 h-4 text-gray-400" />,
+      color: 'var(--color-accent-set)',
+      icon: <SettingsIcon className="w-4 h-4 text-accent-set" />,
       items: ['Departments', 'Categories', 'ESG Configuration', 'Notification Settings'],
       path: '/settings'
     }
@@ -119,46 +120,46 @@ export default function Layout() {
   const getTabColorClass = (tab) => {
     switch (tab) {
       case 'Dashboard':
-        return 'border-cyan-400 text-cyan-400';
+        return 'border-brand text-brand';
       case 'Environmental':
-        return 'border-emerald-500 text-emerald-400';
+        return 'border-accent-env text-accent-env';
       case 'Social':
-        return 'border-[#3B82F6] text-[#3B82F6]';
+        return 'border-accent-soc text-accent-soc';
       case 'Governance':
-        return 'border-[#A855F7] text-[#A855F7]';
+        return 'border-accent-gov text-accent-gov';
       case 'Gamification':
-        return 'border-[#F97316] text-[#F97316]';
+        return 'border-accent-gam text-accent-gam';
       case 'Reports':
-        return 'border-[#06B6D4] text-[#06B6D4]';
+        return 'border-accent-rep text-accent-rep';
       case 'Settings':
-        return 'border-white text-white';
+        return 'border-accent-set text-accent-set';
       default:
-        return 'border-transparent text-gray-400';
+        return 'border-transparent text-text-secondary';
     }
   };
 
   return (
-    <div className="flex h-screen bg-[#0B0F14] text-[#E2E8F0] font-sans overflow-hidden">
+    <div className="flex h-screen bg-bg-base text-text-primary font-sans overflow-hidden">
       {/* LEFT SIDEBAR - Desktop (fixed) & Mobile sliding drawer */}
       <aside className={`
-        fixed inset-y-0 left-0 z-50 w-[260px] bg-[#11161D] border-r border-[#1F2937] flex flex-col justify-between
+        fixed inset-y-0 left-0 z-50 w-[260px] bg-bg-card border-r border-border-sage flex flex-col justify-between
         transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:h-full
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         {/* Sidebar Header */}
-        <div className="p-6 border-b border-[#1F2937] flex items-center justify-between">
+        <div className="p-6 border-b border-border-sage flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
-              <Compass className="w-5 h-5 text-white animate-spin-slow" />
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-brand to-accent-env flex items-center justify-center shadow-lg shadow-brand/10">
+              <Leaf className="w-5 h-5 text-bg-base" />
             </div>
             <div>
-              <h1 className="font-bold text-white text-base tracking-wide leading-tight">EcoSphere</h1>
-              <p className="text-[10px] text-gray-400 font-semibold tracking-wider uppercase">ESG Management</p>
+              <h1 className="font-display font-extrabold text-text-primary text-base tracking-wide leading-tight">EcoSphere</h1>
+              <p className="text-[10px] text-text-secondary font-bold tracking-wider uppercase">ESG Management</p>
             </div>
           </div>
           <button 
             onClick={() => setIsSidebarOpen(false)}
-            className="lg:hidden text-gray-400 hover:text-white transition-colors"
+            className="lg:hidden text-text-secondary hover:text-text-primary transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -172,8 +173,8 @@ export default function Layout() {
               to="/"
               className={({ isActive }) => `w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
                 isActive 
-                  ? 'bg-gradient-to-r from-cyan-500/10 to-emerald-500/10 text-cyan-400 border border-cyan-500/20 shadow-md shadow-cyan-950/20' 
-                  : 'text-gray-400 hover:text-white hover:bg-gray-800/40'
+                  ? 'bg-gradient-to-r from-brand/10 to-accent-env/10 text-brand border border-brand/20 shadow-md shadow-brand/5' 
+                  : 'text-text-secondary hover:text-text-primary hover:bg-bg-base/60'
               }`}
             >
               <Activity className="w-4 h-4" />
@@ -185,16 +186,16 @@ export default function Layout() {
           {sidebarGroups.map((group) => {
             const isGroupActive = currentPath.startsWith(group.path);
             return (
-              <div key={group.title} className="space-y-1.5">
+              <div key={group.title} className="space-y-1.5 bg-bg-base/20 p-2.5 rounded-xl border border-border-sage/40">
                 {/* Group Title Header */}
-                <div className="flex items-center space-x-2 px-3 py-1 text-xs font-semibold text-gray-400 tracking-wider uppercase">
+                <div className="flex items-center space-x-2 px-1 py-1 text-xs font-bold text-text-secondary tracking-wider uppercase font-display">
                   <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: group.color }}></span>
                   {group.icon}
                   <span>{group.title}</span>
                 </div>
                 
                 {/* Indented Sub-Items */}
-                <ul className="pl-7 space-y-1 border-l border-gray-800/60 ml-5">
+                <ul className="pl-4 space-y-1 border-l border-border-sage/50 ml-3.5">
                   {group.items.map((item) => {
                     const activeSubTab = location.state?.activeSubTab;
                     const isSubItemActive = isGroupActive && activeSubTab === item;
@@ -204,10 +205,10 @@ export default function Layout() {
                         <Link
                           to={group.path}
                           state={{ activeSubTab: item }}
-                          className={`w-full block text-left py-1.5 px-2 rounded text-[12px] font-medium transition-all hover:bg-gray-800/30 ${
+                          className={`w-full block text-left py-1 px-2 rounded text-[12px] font-semibold transition-all hover:bg-bg-base/40 ${
                             isSubItemActive 
-                              ? 'text-cyan-400 font-semibold' 
-                              : 'text-gray-400 hover:text-gray-200'
+                              ? 'text-brand font-bold bg-brand/5 border-l-2 border-brand pl-1.5' 
+                              : 'text-text-secondary hover:text-text-primary'
                           }`}
                         >
                           {item}
@@ -222,14 +223,14 @@ export default function Layout() {
         </nav>
 
         {/* Sidebar Footer */}
-        <div className="p-4 border-t border-[#1F2937] bg-gray-900/20">
+        <div className="p-4 border-t border-border-sage bg-bg-base/40">
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 rounded-full bg-cyan-950 border border-cyan-800 flex items-center justify-center text-xs font-bold text-cyan-400">
+            <div className="w-8 h-8 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center text-xs font-bold text-brand">
               {initials}
             </div>
             <div>
-              <p className="text-xs font-semibold text-white">{user?.name}</p>
-              <p className="text-[10px] text-gray-500 font-semibold">{user?.role}</p>
+              <p className="text-xs font-semibold text-text-primary">{user?.name}</p>
+              <p className="text-[10px] text-text-secondary font-bold uppercase tracking-wider">{user?.role}</p>
             </div>
           </div>
         </div>
@@ -244,15 +245,15 @@ export default function Layout() {
       )}
 
       {/* MAIN CONTAINER */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto bg-[#0B0F14]">
+      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto bg-bg-base bg-topographic">
         
         {/* TOP BAR */}
-        <header className="h-14 border-b border-[#1F2937] bg-[#11161D]/50 backdrop-blur-md px-6 flex items-center justify-between sticky top-0 z-30">
+        <header className="h-14 border-b border-border-sage bg-bg-card/50 backdrop-blur-md px-6 flex items-center justify-between sticky top-0 z-30">
           <div className="flex items-center space-x-4">
             {/* Hamburger Button for mobile */}
             <button 
               onClick={() => setIsSidebarOpen(true)}
-              className="lg:hidden text-gray-400 hover:text-white focus:outline-none"
+              className="lg:hidden text-text-secondary hover:text-text-primary focus:outline-none"
             >
               <Menu className="w-6 h-6" />
             </button>
@@ -263,31 +264,31 @@ export default function Layout() {
               <span className="w-3 h-3 rounded-full bg-[#FFBD2E] border border-[#DEA123]"></span>
               <span className="w-3 h-3 rounded-full bg-[#27C93F] border border-[#1AAB29]"></span>
             </div>
-            <span className="text-sm font-semibold text-gray-300 tracking-wide">
+            <span className="text-sm font-bold text-text-secondary tracking-wide font-display">
               {title}
             </span>
           </div>
 
           <div className="flex items-center space-x-4">
-            <span className={`hidden md:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${liveFeedBg}`}>
+            <span className={`hidden md:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${liveFeedBg}`}>
               <span className={`w-1.5 h-1.5 rounded-full ${liveFeedDot} animate-pulse mr-1.5`}></span>
               Live Feed
             </span>
 
             {/* Profile Chip */}
-            <div className="flex items-center space-x-3 border-l border-gray-800/60 pl-4">
-              <div className="w-8 h-8 rounded-full bg-cyan-950 border border-cyan-800 flex items-center justify-center text-xs font-bold text-cyan-400">
+            <div className="flex items-center space-x-3 border-l border-border-sage pl-4">
+              <div className="w-8 h-8 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center text-xs font-bold text-brand">
                 {initials}
               </div>
               <div className="hidden sm:block text-left">
-                <p className="text-xs font-bold text-white leading-none">{user?.name}</p>
-                <span className="inline-block text-[9px] font-extrabold uppercase bg-gray-800 text-gray-400 px-1.5 py-0.5 rounded mt-1">
+                <p className="text-xs font-bold text-text-primary leading-none">{user?.name}</p>
+                <span className="inline-block text-[9px] font-extrabold uppercase bg-bg-base border border-border-sage/40 text-text-secondary px-1.5 py-0.5 rounded mt-1">
                   {user?.role}
                 </span>
               </div>
               <button 
                 onClick={handleLogout}
-                className="p-1.5 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-all duration-150 ml-1"
+                className="p-1.5 rounded-lg text-text-secondary hover:text-red-400 hover:bg-red-500/10 transition-all duration-150 ml-1"
                 title="Log Out"
               >
                 <LogOut className="w-4 h-4" />
@@ -297,7 +298,7 @@ export default function Layout() {
         </header>
 
         {/* TABS BAR */}
-        <div className="bg-[#11161D]/30 border-b border-[#1F2937] px-6">
+        <div className="bg-bg-card/25 border-b border-border-sage px-6">
           <div className="flex space-x-8 overflow-x-auto scrollbar-none py-3">
             {['Dashboard', 'Environmental', 'Social', 'Governance', 'Gamification', 'Reports', 'Settings'].map((tab) => {
               const toPath = tab === 'Dashboard' ? '/' : `/${tab.toLowerCase()}`;
@@ -305,10 +306,10 @@ export default function Layout() {
                 <NavLink
                   key={tab}
                   to={toPath}
-                  className={({ isActive }) => `text-xs font-semibold uppercase tracking-wider whitespace-nowrap pb-1.5 border-b-2 transition-all duration-200 ${
+                  className={({ isActive }) => `text-xs font-bold uppercase tracking-wider whitespace-nowrap pb-1.5 border-b-2 transition-all duration-200 ${
                     isActive 
                       ? getTabColorClass(tab) 
-                      : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-800'
+                      : 'border-transparent text-text-secondary hover:text-text-primary hover:border-border-sage'
                   }`}
                 >
                   {tab}

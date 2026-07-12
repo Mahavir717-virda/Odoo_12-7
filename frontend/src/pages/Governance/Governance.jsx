@@ -97,6 +97,7 @@ export default function Governance() {
     }
   }, [location.state]);
 
+  // Close dropdown on outside click
   useEffect(() => {
     function handleClickOutside(e) {
       if (exportRef.current && !exportRef.current.contains(e.target)) {
@@ -107,27 +108,28 @@ export default function Governance() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // --- HANDLERS ---
-  const handleExport = (format) => {
-    showToast(`Exporting as ${format}...`, "info");
-    setIsExportOpen(false);
+  // --- ACTIONS HANDLERS ---
+  const handleExport = (fmt) => {
+    showToast(`Generating ${fmt} export of audit logs...`, "info");
+    setTimeout(() => {
+      showToast(`Exported audits successfully as ${fmt}!`, "success");
+      setIsExportOpen(false);
+    }, 900);
   };
 
   const handleAuditSubmit = (e) => {
     e.preventDefault();
     if (!auditFormData.title || !auditFormData.auditor || !auditFormData.date) {
-      showToast("Please fill in title, auditor, and date.", "error");
+      showToast("Please fill in title, lead auditor, and date.", "error");
       return;
     }
-
     const newAudit = {
       id: Date.now(),
       ...auditFormData,
       status: "Under Review"
     };
-
     setAudits([newAudit, ...audits]);
-    showToast("Audit logged successfully!", "success");
+    showToast("Audit conducted and logged under review.", "success");
     setIsAuditModalOpen(false);
     setAuditFormData({ title: '', department: 'Manufacturing', auditor: '', date: '', findings: '' });
   };
@@ -139,13 +141,13 @@ export default function Governance() {
 
   const handleResolveIssue = () => {
     if (!selectedIssue) return;
-    setComplianceIssues(complianceIssues.map(c => {
-      if (c.id === selectedIssue.id) {
-        return { ...c, status: 'Resolved' };
+    setComplianceIssues(complianceIssues.map(item => {
+      if (item.id === selectedIssue.id) {
+        return { ...item, status: 'Resolved' };
       }
-      return c;
+      return item;
     }));
-    showToast("Issue marked resolved!", "success");
+    showToast("Compliance issue marked as Resolved.", "success");
     setIsIssueModalOpen(false);
     setSelectedIssue(null);
   };
@@ -165,6 +167,7 @@ export default function Governance() {
     setPolicies([...policies, newPol]);
     showToast("Corporate Policy created!", "success");
     setIsPolicyModalOpen(false);
+    setPolicyFormData({ name: '', version: 'v1.0', category: 'Ethics' });
   };
 
   const handleAckSubmit = (e) => {
@@ -182,14 +185,15 @@ export default function Governance() {
     setAcknowledgements([newAck, ...acknowledgements]);
     showToast("Acknowledgement logged!", "success");
     setIsAckModalOpen(false);
+    setAckFormData({ employee: '', policy: 'Anti-Bribery Policy' });
   };
 
   const subTabs = ['Policies', 'Policy Acknowledgements', 'Audits', 'Compliance Issues'];
 
   return (
-    <div className="flex flex-col min-w-0 overflow-y-auto bg-[#0B0F14] flex-1">
+    <div className="flex flex-col min-w-0 overflow-y-auto bg-bg-base flex-1">
       {/* SUB-NAV ROW */}
-      <div className="bg-[#11161D]/10 border-b border-[#1F2937]/60 px-6 py-4">
+      <div className="bg-bg-card/10 border-b border-border-sage px-6 py-4">
         <div className="flex flex-wrap gap-3">
           {subTabs.map((subSection) => {
             const isActive = subSection === activeSubTab;
@@ -197,10 +201,10 @@ export default function Governance() {
               <button
                 key={subSection}
                 onClick={() => setActiveSubTab(subSection)}
-                className={`px-4 py-2 rounded-lg text-xs font-semibold tracking-wide transition-all duration-200 ${
+                className={`px-4 py-2 rounded-lg text-xs font-semibold tracking-wide transition-all duration-200 cursor-pointer ${
                   isActive 
-                    ? 'bg-[#A855F7] text-white shadow-md shadow-purple-500/10 font-bold' 
-                    : 'bg-[#11161D] border border-gray-800 text-gray-400 hover:text-gray-200 hover:border-gray-700'
+                    ? 'bg-accent-gov text-bg-base shadow-md shadow-accent-gov/10 font-bold' 
+                    : 'bg-bg-card border border-border-sage text-text-secondary hover:text-text-primary hover:border-text-secondary'
                 }`}
               >
                 {subSection}
@@ -218,26 +222,26 @@ export default function Governance() {
           <section className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <h2 className="text-xl font-bold text-white tracking-tight">Audits Log</h2>
-                <p className="text-xs text-gray-400 mt-1">Review internal and vendor compliance audits conducted by certified auditors.</p>
+                <h2 className="text-xl font-bold font-display text-text-primary tracking-tight">Audits Log</h2>
+                <p className="text-xs text-text-secondary mt-1 font-medium">Review internal and vendor compliance audits conducted by certified auditors.</p>
               </div>
               
               <div className="flex items-center space-x-2.5">
                 <button 
                   disabled={!isAdmin}
                   onClick={() => setIsAuditModalOpen(true)}
-                  className={`flex items-center space-x-1.5 px-3.5 py-2 bg-[#A855F7] text-white font-bold text-xs rounded-lg transition-all duration-150 ${
+                  className={`flex items-center space-x-1.5 px-3.5 py-2 bg-gradient-to-r from-accent-gov to-purple-600 text-bg-base font-extrabold text-xs rounded-lg transition-all shadow-md shadow-accent-gov/5 ${
                     isAdmin 
-                      ? 'hover:bg-[#9333EA] active:scale-[0.98]' 
+                      ? 'hover:brightness-110 active:scale-[0.98] cursor-pointer' 
                       : 'opacity-40 cursor-not-allowed'
                   }`}
                 >
                   <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                  <span>New Audit</span>
+                  <span className="uppercase tracking-wider">New Audit</span>
                 </button>
                 {!isAdmin && (
-                  <span className="text-[10px] text-gray-500 font-semibold bg-gray-800/40 px-2 py-1 rounded border border-gray-800/60">
-                    Admin access required
+                  <span className="text-[9px] text-text-secondary font-bold bg-bg-card border border-border-sage px-2 py-1 rounded-full uppercase tracking-wider">
+                    Admin Access Required
                   </span>
                 )}
                 
@@ -245,19 +249,19 @@ export default function Governance() {
                 <div className="relative" ref={exportRef}>
                   <button 
                     onClick={() => setIsExportOpen(!isExportOpen)}
-                    className="flex items-center space-x-1.5 px-3.5 py-2 bg-transparent border border-gray-700 hover:border-gray-500 hover:bg-gray-800/40 text-gray-300 font-semibold text-xs rounded-lg transition-colors"
+                    className="flex items-center space-x-1.5 px-3.5 py-2 bg-transparent border border-border-sage hover:border-text-secondary hover:bg-bg-base/40 text-text-primary font-bold text-xs rounded-lg transition-colors cursor-pointer"
                   >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Export</span>
-                    <ChevronDown className="w-3.5 h-3.5 text-gray-500" />
+                    <Download className="w-3.5 h-3.5 text-text-secondary" />
+                    <span className="uppercase tracking-wider">Export</span>
+                    <ChevronDown className="w-3.5 h-3.5 text-text-secondary" />
                   </button>
                   {isExportOpen && (
-                    <div className="absolute right-0 mt-1.5 w-32 rounded-xl bg-[#11161D] border border-gray-800 shadow-2xl py-1.5 z-20">
+                    <div className="absolute right-0 mt-1.5 w-36 rounded-xl bg-bg-card border border-border-sage shadow-2xl py-1.5 z-20">
                       {['PDF', 'Excel', 'CSV'].map(fmt => (
                         <button
                           key={fmt}
                           onClick={() => handleExport(fmt)}
-                          className="w-full text-left px-4 py-2 hover:bg-gray-800/60 text-xs font-semibold text-gray-300 hover:text-white"
+                          className="w-full text-left px-4 py-2 hover:bg-bg-base/60 text-xs font-semibold text-text-primary hover:text-brand"
                         >
                           Export as {fmt}
                         </button>
@@ -268,11 +272,11 @@ export default function Governance() {
               </div>
             </div>
 
-            <div className="bg-[#11161D] border border-gray-800/85 rounded-2xl overflow-hidden shadow-lg">
+            <div className="bg-bg-card border border-border-sage rounded-2xl overflow-hidden shadow-lg shadow-brand/5">
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-[700px]">
+                <table className="w-full text-left border-collapse min-w-[700px] text-xs">
                   <thead>
-                    <tr className="bg-[#171D26] border-b border-gray-800 text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                    <tr className="bg-bg-card/85 border-b border-border-sage text-[10px] font-bold text-text-secondary uppercase tracking-wider font-display">
                       <th className="py-4 px-6">Title</th>
                       <th className="py-4 px-6">Department</th>
                       <th className="py-4 px-6">Auditor</th>
@@ -281,34 +285,34 @@ export default function Governance() {
                       <th className="py-4 px-6">Status</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-800/60 text-xs text-gray-300">
+                  <tbody className="divide-y divide-border-sage/40 text-text-primary">
                     {audits.map((audit) => {
                       let badgeStyle = "";
                       if (audit.status === "Completed") {
-                        badgeStyle = "bg-[#3B82F6]/10 text-[#3B82F6] border border-[#3B82F6]/20";
+                        badgeStyle = "bg-accent-env/10 text-accent-env border border-accent-env/20";
                       } else if (audit.status === "Under Review") {
-                        badgeStyle = "bg-[#A855F7]/10 text-[#A855F7] border border-[#A855F7]/20";
+                        badgeStyle = "bg-accent-gov/10 text-accent-gov border border-accent-gov/20";
                       }
 
                       return (
-                        <tr key={audit.id} className="hover:bg-gray-800/15 transition-colors duration-150 group">
-                          <td className="py-4 px-6 font-semibold text-white group-hover:text-purple-400 transition-colors">
+                        <tr key={audit.id} className="hover:bg-bg-base/30 transition-colors duration-150 group">
+                          <td className="py-4 px-6 font-bold text-text-primary group-hover:text-accent-gov transition-colors font-display">
                             {audit.title}
                           </td>
-                          <td className="py-4 px-6 text-gray-400 font-medium">
+                          <td className="py-4 px-6 text-text-secondary font-semibold">
                             {audit.department}
                           </td>
-                          <td className="py-4 px-6 text-gray-300">
+                          <td className="py-4 px-6 text-text-primary font-medium">
                             {audit.auditor}
                           </td>
-                          <td className="py-4 px-6 text-gray-400 font-mono">
+                          <td className="py-4 px-6 text-text-secondary font-mono">
                             {audit.date}
                           </td>
-                          <td className="py-4 px-6 text-gray-300 font-medium">
+                          <td className="py-4 px-6 text-text-primary font-medium">
                             {audit.findings}
                           </td>
                           <td className="py-4 px-6">
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${badgeStyle}`}>
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${badgeStyle}`}>
                               {audit.status}
                             </span>
                           </td>
@@ -325,16 +329,16 @@ export default function Governance() {
         {/* --- COMPLIANCE ISSUES SUB-TAB --- */}
         {activeSubTab === 'Compliance Issues' && (
           <section className="space-y-4">
-            <div className="flex items-center space-x-2 text-xs font-semibold text-gray-400 uppercase tracking-wider pl-1">
-              <ShieldAlert className="w-4 h-4 text-purple-400" />
-              <span>Compliance Issues raised from Audits (Click row to inspect)</span>
+            <div className="flex items-center space-x-2 text-[10px] font-extrabold text-text-secondary uppercase tracking-wider pl-1 font-display">
+              <ShieldAlert className="w-4 h-4 text-accent-gov" />
+              <span>Compliance Issues Raised from Audits (Click row to inspect)</span>
             </div>
 
-            <div className="bg-[#11161D] border border-gray-800/85 rounded-2xl overflow-hidden shadow-lg">
+            <div className="bg-bg-card border border-border-sage rounded-2xl overflow-hidden shadow-lg shadow-brand/5">
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-[600px]">
+                <table className="w-full text-left border-collapse min-w-[600px] text-xs">
                   <thead>
-                    <tr className="bg-[#171D26] border-b border-gray-800 text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                    <tr className="bg-bg-card/85 border-b border-border-sage text-[10px] font-bold text-text-secondary uppercase tracking-wider font-display">
                       <th className="py-4 px-6">Issue</th>
                       <th className="py-4 px-6">Severity</th>
                       <th className="py-4 px-6">Department</th>
@@ -342,29 +346,29 @@ export default function Governance() {
                       <th className="py-4 px-6 text-center">Inspect</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-800/60 text-xs text-gray-300">
+                  <tbody className="divide-y divide-border-sage/40 text-text-primary">
                     {complianceIssues.map((item) => {
                       let severityBadge = "";
                       if (item.severity === "High") {
-                        severityBadge = "bg-[#EF4444] text-white font-extrabold shadow-sm shadow-red-950/20";
+                        severityBadge = "bg-red-500 text-white font-extrabold shadow-sm shadow-red-950/20";
                       } else if (item.severity === "Medium") {
-                        severityBadge = "bg-[#F59E0B] text-black font-extrabold shadow-sm shadow-amber-950/20";
+                        severityBadge = "bg-accent-gam text-bg-base font-extrabold shadow-sm shadow-amber-950/20";
                       }
 
                       let statusBadge = "";
                       if (item.status === "Open") {
-                        statusBadge = "border border-[#EF4444] text-[#EF4444] bg-transparent font-bold";
+                        statusBadge = "border border-red-500 text-red-400 bg-transparent font-bold";
                       } else if (item.status === "Resolved") {
-                        statusBadge = "border border-[#22C55E] text-[#22C55E] bg-transparent font-bold";
+                        statusBadge = "border border-accent-env text-accent-env bg-transparent font-bold";
                       }
 
                       return (
                         <tr 
                           key={item.id} 
                           onClick={() => handleOpenIssue(item)}
-                          className="hover:bg-gray-800/15 transition-colors duration-150 group cursor-pointer"
+                          className="hover:bg-bg-base/30 transition-colors duration-150 group cursor-pointer"
                         >
-                          <td className="py-4 px-6 font-semibold text-white group-hover:text-purple-400 transition-colors">
+                          <td className="py-4 px-6 font-bold text-text-primary group-hover:text-accent-gov transition-colors font-display">
                             {item.issue}
                           </td>
                           <td className="py-4 px-6">
@@ -372,7 +376,7 @@ export default function Governance() {
                               {item.severity}
                             </span>
                           </td>
-                          <td className="py-4 px-6 text-gray-400 font-medium">
+                          <td className="py-4 px-6 text-text-secondary font-semibold">
                             {item.department}
                           </td>
                           <td className="py-4 px-6">
@@ -381,7 +385,7 @@ export default function Governance() {
                             </span>
                           </td>
                           <td className="py-4 px-6 text-center">
-                            <Eye className="w-4 h-4 text-gray-500 hover:text-white mx-auto transition-colors" />
+                            <Eye className="w-4 h-4 text-text-secondary hover:text-text-primary mx-auto transition-colors" />
                           </td>
                         </tr>
                       );
@@ -391,9 +395,9 @@ export default function Governance() {
               </div>
             </div>
 
-            <div className="flex items-center space-x-1.5 pl-1 text-[11px] text-gray-500 font-medium italic">
-              <AlertTriangle className="w-3.5 h-3.5 text-gray-500 mr-1 not-italic" />
-              <span>Compliance issues track Owner + Due Date internally; issues open past due date are auto-flagged and trigger notifications.</span>
+            <div className="flex items-center space-x-1.5 pl-1 text-[10px] text-text-secondary/70 font-bold uppercase tracking-wide">
+              <AlertTriangle className="w-3.5 h-3.5 text-text-secondary mr-1 not-italic" />
+              <span>Compliance issues track Responsible Owner + Due Date internally.</span>
             </div>
           </section>
         )}
@@ -403,22 +407,22 @@ export default function Governance() {
           <section className="space-y-6">
             <div className="flex justify-between items-center">
               <div>
-                <h2 className="text-xl font-bold text-white tracking-tight">Corporate Policies</h2>
-                <p className="text-xs text-gray-400 mt-1">Review active corporate compliance policies and governance guidelines.</p>
+                <h2 className="text-xl font-bold font-display text-text-primary tracking-tight">Corporate Policies</h2>
+                <p className="text-xs text-text-secondary mt-1 font-medium">Review active corporate compliance policies and governance guidelines.</p>
               </div>
               <button 
                 onClick={() => setIsPolicyModalOpen(true)}
-                className="flex items-center space-x-1.5 px-3.5 py-2 bg-[#A855F7] text-white font-bold text-xs rounded-lg transition-colors"
+                className="flex items-center space-x-1.5 px-3.5 py-2 bg-gradient-to-r from-accent-gov to-purple-600 text-bg-base font-extrabold text-xs rounded-lg transition-colors cursor-pointer shadow-md shadow-accent-gov/5"
               >
                 <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                <span>New Policy</span>
+                <span className="uppercase tracking-wider">New Policy</span>
               </button>
             </div>
 
-            <div className="bg-[#11161D] border border-gray-800 rounded-2xl overflow-hidden shadow-lg">
-              <table className="w-full text-left border-collapse">
+            <div className="bg-bg-card border border-border-sage rounded-2xl overflow-hidden shadow-lg shadow-brand/5">
+              <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="bg-[#171D26] border-b border-gray-800 text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                  <tr className="bg-bg-card/85 border-b border-border-sage text-[10px] font-bold text-text-secondary uppercase tracking-wider font-display">
                     <th className="py-4 px-6">Name</th>
                     <th className="py-4 px-6">Classification</th>
                     <th className="py-4 px-6">Revision Date</th>
@@ -426,18 +430,18 @@ export default function Governance() {
                     <th className="py-4 px-6">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-800/60 text-xs text-gray-300">
+                <tbody className="divide-y divide-border-sage/40 text-text-primary">
                   {policies.map(pol => (
-                    <tr key={pol.id} className="hover:bg-gray-800/10">
-                      <td className="py-4 px-6 font-semibold text-white">{pol.name}</td>
+                    <tr key={pol.id} className="hover:bg-bg-base/20 transition-colors">
+                      <td className="py-4 px-6 font-bold text-text-primary font-display">{pol.name}</td>
                       <td className="py-4 px-6">
-                        <span className="bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded text-[10px] font-bold border border-purple-500/20">
+                        <span className="bg-accent-gov/10 text-accent-gov px-2.5 py-0.5 rounded-full text-[9px] font-bold border border-accent-gov/20">
                           {pol.category}
                         </span>
                       </td>
-                      <td className="py-4 px-6 text-gray-400 font-mono">{pol.date}</td>
-                      <td className="py-4 px-6 text-gray-300 font-mono">{pol.version}</td>
-                      <td className="py-4 px-6 text-emerald-400 font-bold">{pol.activeCount} acknowledged</td>
+                      <td className="py-4 px-6 text-text-secondary font-mono">{pol.date}</td>
+                      <td className="py-4 px-6 text-text-primary font-mono">{pol.version}</td>
+                      <td className="py-4 px-6 text-accent-env font-bold">{pol.activeCount} acknowledged</td>
                     </tr>
                   ))}
                 </tbody>
@@ -451,36 +455,36 @@ export default function Governance() {
           <section className="space-y-6">
             <div className="flex justify-between items-center">
               <div>
-                <h2 className="text-xl font-bold text-white tracking-tight">Acknowledgements Log</h2>
-                <p className="text-xs text-gray-400 mt-1">Audit log of employee policy signatures and training module completions.</p>
+                <h2 className="text-xl font-bold font-display text-text-primary tracking-tight">Acknowledgements Log</h2>
+                <p className="text-xs text-text-secondary mt-1 font-medium">Audit log of employee policy signatures and training module completions.</p>
               </div>
               <button 
                 onClick={() => setIsAckModalOpen(true)}
-                className="flex items-center space-x-1.5 px-3.5 py-2 bg-[#A855F7] text-white font-bold text-xs rounded-lg transition-colors"
+                className="flex items-center space-x-1.5 px-3.5 py-2 bg-gradient-to-r from-accent-gov to-purple-600 text-bg-base font-extrabold text-xs rounded-lg transition-colors cursor-pointer shadow-md shadow-accent-gov/5"
               >
                 <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                <span>Log Acknowledgement</span>
+                <span className="uppercase tracking-wider">Log Acknowledgement</span>
               </button>
             </div>
 
-            <div className="bg-[#11161D] border border-gray-800 rounded-2xl overflow-hidden shadow-lg">
-              <table className="w-full text-left border-collapse">
+            <div className="bg-bg-card border border-border-sage rounded-2xl overflow-hidden shadow-lg shadow-brand/5">
+              <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="bg-[#171D26] border-b border-gray-800 text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                  <tr className="bg-bg-card/85 border-b border-border-sage text-[10px] font-bold text-text-secondary uppercase tracking-wider font-display">
                     <th className="py-4 px-6">Employee</th>
                     <th className="py-4 px-6">Signed Policy</th>
                     <th className="py-4 px-6 font-mono">Timestamp</th>
                     <th className="py-4 px-6">Signature Verification</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-800/60 text-xs text-gray-300">
+                <tbody className="divide-y divide-border-sage/40 text-text-primary">
                   {acknowledgements.map(ack => (
-                    <tr key={ack.id} className="hover:bg-gray-800/10">
-                      <td className="py-4 px-6 font-semibold text-white">{ack.employee}</td>
-                      <td className="py-4 px-6 text-gray-400 font-medium">{ack.policy}</td>
-                      <td className="py-4 px-6 text-gray-500 font-mono">{ack.date}</td>
+                    <tr key={ack.id} className="hover:bg-bg-base/20 transition-colors">
+                      <td className="py-4 px-6 font-bold text-text-primary font-display">{ack.employee}</td>
+                      <td className="py-4 px-6 text-text-secondary font-semibold">{ack.policy}</td>
+                      <td className="py-4 px-6 text-text-secondary font-mono">{ack.date}</td>
                       <td className="py-4 px-6">
-                        <span className="text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded text-[10px] font-bold border border-emerald-500/20">
+                        <span className="text-accent-env bg-accent-env/10 px-2.5 py-0.5 rounded-full text-[9px] font-bold border border-accent-env/20 uppercase tracking-wider">
                           {ack.method} Verified
                         </span>
                       </td>
@@ -499,27 +503,27 @@ export default function Governance() {
         onClose={() => setIsAuditModalOpen(false)}
         title="Conduct Compliance Audit"
         confirmText="Submit Audit Log"
-        confirmColorClass="bg-[#A855F7] hover:bg-[#9333EA] text-white font-bold"
+        confirmColorClass="bg-accent-gov hover:bg-purple-600 text-bg-base font-bold"
         onConfirm={handleAuditSubmit}
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Audit Title</label>
+            <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Audit Title</label>
             <input
               type="text"
               value={auditFormData.title}
               onChange={(e) => setAuditFormData({ ...auditFormData, title: e.target.value })}
               placeholder="e.g. Q3 Vendor Safety Audit"
-              className="w-full bg-[#0B0F14] border border-gray-800 rounded-lg p-2 text-xs text-gray-300 focus:outline-none focus:border-purple-500"
+              className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary placeholder-text-secondary/40 focus:outline-none focus:border-accent-gov"
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Department</label>
+              <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Department</label>
               <select
                 value={auditFormData.department}
                 onChange={(e) => setAuditFormData({ ...auditFormData, department: e.target.value })}
-                className="w-full bg-[#0B0F14] border border-gray-800 rounded-lg p-2 text-xs text-gray-300 focus:outline-none"
+                className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary focus:outline-none focus:border-accent-gov"
               >
                 <option>Manufacturing</option>
                 <option>Procurement</option>
@@ -529,33 +533,33 @@ export default function Governance() {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Lead Auditor</label>
+              <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Lead Auditor</label>
               <input
                 type="text"
                 value={auditFormData.auditor}
                 onChange={(e) => setAuditFormData({ ...auditFormData, auditor: e.target.value })}
                 placeholder="e.g. S. Nair"
-                className="w-full bg-[#0B0F14] border border-gray-800 rounded-lg p-2 text-xs text-gray-300 focus:outline-none"
+                className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary placeholder-text-secondary/40 focus:outline-none focus:border-accent-gov"
               />
             </div>
           </div>
           <div>
-            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Audit Date</label>
+            <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Audit Date</label>
             <input
               type="date"
               value={auditFormData.date}
               onChange={(e) => setAuditFormData({ ...auditFormData, date: e.target.value })}
-              className="w-full bg-[#0B0F14] border border-gray-800 rounded-lg p-2 text-xs text-[#9CA3AF] focus:outline-none"
+              className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary focus:outline-none focus:border-accent-gov"
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Key Findings Summary</label>
+            <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Key Findings Summary</label>
             <textarea
               rows="3"
               value={auditFormData.findings}
               onChange={(e) => setAuditFormData({ ...auditFormData, findings: e.target.value })}
               placeholder="Detail minor / major compliance issues detected..."
-              className="w-full bg-[#0B0F14] border border-gray-800 rounded-lg p-2 text-xs text-gray-300 focus:outline-none focus:border-purple-500"
+              className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary placeholder-text-secondary/40 focus:outline-none focus:border-accent-gov"
             ></textarea>
           </div>
         </div>
@@ -567,122 +571,128 @@ export default function Governance() {
         onClose={() => { setIsIssueModalOpen(false); setSelectedIssue(null); }}
         title="Compliance Issue Detail"
         confirmText={selectedIssue?.status === 'Open' ? "Mark Resolved" : null}
-        confirmColorClass="bg-[#22C55E] hover:bg-[#1EAF53] text-black font-bold"
+        confirmColorClass="bg-accent-env hover:bg-emerald-600 text-bg-base font-bold"
         onConfirm={handleResolveIssue}
       >
         {selectedIssue && (
-          <div className="space-y-4">
+          <div className="space-y-4 text-xs">
             <div>
-              <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Classification</span>
-              <p className="text-xs font-bold text-white mt-0.5">{selectedIssue.issue}</p>
+              <span className="text-[10px] uppercase font-bold text-text-secondary tracking-wider font-display">Classification</span>
+              <p className="text-xs font-bold text-text-primary mt-1 font-display">{selectedIssue.issue}</p>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Department</span>
-                <p className="text-xs font-semibold text-gray-300 mt-0.5">{selectedIssue.department}</p>
+                <span className="text-[10px] uppercase font-bold text-text-secondary tracking-wider font-display">Department</span>
+                <p className="text-xs font-semibold text-text-primary mt-1">{selectedIssue.department}</p>
               </div>
               <div>
-                <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Severity</span>
-                <p className="text-xs font-semibold mt-0.5 text-red-400">{selectedIssue.severity}</p>
+                <span className="text-[10px] uppercase font-bold text-text-secondary tracking-wider font-display">Severity</span>
+                <p className="text-xs font-bold mt-1 text-red-400 uppercase tracking-wider">{selectedIssue.severity}</p>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Responsible Owner</span>
-                <p className="text-xs font-semibold text-gray-300 mt-0.5">{selectedIssue.owner}</p>
+                <span className="text-[10px] uppercase font-bold text-text-secondary tracking-wider font-display">Responsible Owner</span>
+                <p className="text-xs font-semibold text-text-primary mt-1">{selectedIssue.owner}</p>
               </div>
               <div>
-                <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Resolution Due Date</span>
-                <p className="text-xs font-semibold text-gray-300 mt-0.5 font-mono">{selectedIssue.dueDate}</p>
+                <span className="text-[10px] uppercase font-bold text-text-secondary tracking-wider font-display">Resolution Due Date</span>
+                <p className="text-xs font-semibold text-text-primary mt-1 font-mono">{selectedIssue.dueDate}</p>
               </div>
             </div>
             <div>
-              <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Status</span>
-              <p className={`text-xs font-bold mt-0.5 uppercase ${selectedIssue.status === 'Open' ? 'text-red-400' : 'text-emerald-400'}`}>
-                {selectedIssue.status}
-              </p>
+              <span className="text-[10px] uppercase font-bold text-text-secondary tracking-wider font-display">Status</span>
+              <div className="mt-1">
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
+                  selectedIssue.status === 'Open' 
+                    ? 'border border-red-500 text-red-400 bg-transparent' 
+                    : 'border border-accent-env text-accent-env bg-transparent'
+                }`}>
+                  {selectedIssue.status}
+                </span>
+              </div>
             </div>
           </div>
         )}
       </Modal>
 
-      {/* --- POLICY ADDITION MODAL --- */}
+      {/* --- CORPORATE POLICY CREATION MODAL --- */}
       <Modal
         isOpen={isPolicyModalOpen}
         onClose={() => setIsPolicyModalOpen(false)}
-        title="Draft Corporate Policy"
-        confirmText="Create Policy"
-        confirmColorClass="bg-[#A855F7] hover:bg-[#9333EA] text-white font-bold"
+        title="Formulate Corporate Policy"
+        confirmText="Publish Policy"
+        confirmColorClass="bg-accent-gov hover:bg-purple-600 text-bg-base font-bold"
         onConfirm={handlePolicySubmit}
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Policy Name</label>
+            <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Policy Name</label>
             <input
               type="text"
               value={policyFormData.name}
               onChange={(e) => setPolicyFormData({ ...policyFormData, name: e.target.value })}
-              placeholder="e.g. Fair Trade Sourcing Policy"
-              className="w-full bg-[#0B0F14] border border-gray-800 rounded-lg p-2 text-xs text-gray-300 focus:outline-none"
+              placeholder="e.g. Anti-Bribery Policy Statement"
+              className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary placeholder-text-secondary/40 focus:outline-none focus:border-accent-gov"
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Category</label>
-              <select
-                value={policyFormData.category}
-                onChange={(e) => setPolicyFormData({ ...policyFormData, category: e.target.value })}
-                className="w-full bg-[#0B0F14] border border-gray-800 rounded-lg p-2 text-xs text-gray-300 focus:outline-none"
-              >
-                <option>Ethics</option>
-                <option>Safety</option>
-                <option>Disclosure</option>
-                <option>Security</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Version</label>
+              <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Revision Version</label>
               <input
                 type="text"
                 value={policyFormData.version}
                 onChange={(e) => setPolicyFormData({ ...policyFormData, version: e.target.value })}
-                placeholder="e.g. v1.0"
-                className="w-full bg-[#0B0F14] border border-gray-800 rounded-lg p-2 text-xs text-gray-300 focus:outline-none"
+                placeholder="e.g. v2.1"
+                className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary placeholder-text-secondary/40 focus:outline-none focus:border-accent-gov"
               />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Classification Category</label>
+              <select
+                value={policyFormData.category}
+                onChange={(e) => setPolicyFormData({ ...policyFormData, category: e.target.value })}
+                className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary focus:outline-none focus:border-accent-gov"
+              >
+                <option>Ethics</option>
+                <option>Safety</option>
+                <option>Disclosure</option>
+                <option>Environmental</option>
+              </select>
             </div>
           </div>
         </div>
       </Modal>
 
-      {/* --- ACKNOWLEDGEMENT MANUAL LOG MODAL --- */}
+      {/* --- POLICY ACKNOWLEDGEMENT MODAL --- */}
       <Modal
         isOpen={isAckModalOpen}
         onClose={() => setIsAckModalOpen(false)}
-        title="Log Policy Signature"
-        confirmText="Save Log"
-        confirmColorClass="bg-[#A855F7] hover:bg-[#9333EA] text-white font-bold"
+        title="Log Policy Acknowledgement"
+        confirmText="Log Signature"
+        confirmColorClass="bg-accent-gov hover:bg-purple-600 text-bg-base font-bold"
         onConfirm={handleAckSubmit}
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Employee Name</label>
+            <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Employee Name</label>
             <input
               type="text"
               value={ackFormData.employee}
               onChange={(e) => setAckFormData({ ...ackFormData, employee: e.target.value })}
-              placeholder="e.g. Priya Sharma"
-              className="w-full bg-[#0B0F14] border border-gray-800 rounded-lg p-2 text-xs text-gray-300 focus:outline-none"
+              placeholder="e.g. Aditi Rao"
+              className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary placeholder-text-secondary/40 focus:outline-none focus:border-accent-gov"
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Policy Target</label>
+            <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Select Policy</label>
             <select
               value={ackFormData.policy}
               onChange={(e) => setAckFormData({ ...ackFormData, policy: e.target.value })}
-              className="w-full bg-[#0B0F14] border border-gray-800 rounded-lg p-2 text-xs text-gray-300"
+              className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary focus:outline-none focus:border-accent-gov"
             >
-              {policies.map(p => (
-                <option key={p.id} value={p.name}>{p.name}</option>
+              {policies.map(pol => (
+                <option key={pol.id} value={pol.name}>{pol.name}</option>
               ))}
             </select>
           </div>

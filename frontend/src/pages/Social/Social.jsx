@@ -98,29 +98,37 @@ export default function Social() {
   // Checkbox selection state for queue
   const [selectedQueueIds, setSelectedQueueIds] = useState([]);
 
-  // Modal State
+  // CSR activity creation form state
   const [isActivityModalOpen, setIsActivityModalOpen] = useState(false);
   const [newActivityData, setNewActivityData] = useState({ title: '', iconType: 'tree', evidenceRequired: false });
 
-  // Map icon helper
   const renderActivityIcon = (type) => {
     switch (type) {
-      case 'tree': return <TreePine className="w-6 h-6 text-emerald-400" />;
-      case 'droplet': return <Droplet className="w-6 h-6 text-red-400" />;
-      case 'waves': return <Waves className="w-6 h-6 text-cyan-400" />;
-      case 'grad': return <GraduationCap className="w-6 h-6 text-blue-400" />;
-      default: return <Heart className="w-6 h-6 text-amber-400" />;
+      case 'tree': return <TreePine className="w-5 h-5" />;
+      case 'droplet': return <Droplet className="w-5 h-5 text-red-400" />;
+      case 'waves': return <Waves className="w-5 h-5 text-cyan-400" />;
+      case 'grad': return <GraduationCap className="w-5 h-5 text-indigo-400" />;
+      default: return <Heart className="w-5 h-5 text-pink-400" />;
     }
   };
 
-  // --- HANDLERS ---
+  // CSR Activities Handlers
+  const handleJoinActivity = (id, title) => {
+    setActivities(activities.map(act => {
+      if (act.id === id) {
+        return { ...act, joined: act.joined + 1, hasJoined: true };
+      }
+      return act;
+    }));
+    showToast(`You have joined: ${title}!`, "success");
+  };
+
   const handleCreateActivity = (e) => {
     e.preventDefault();
     if (!newActivityData.title) {
-      showToast("Activity name is required.", "error");
+      showToast("Please enter activity name.", "error");
       return;
     }
-
     const newAct = {
       id: Date.now(),
       title: newActivityData.title,
@@ -129,32 +137,17 @@ export default function Social() {
       iconType: newActivityData.iconType,
       hasJoined: false
     };
-
     setActivities([...activities, newAct]);
-    showToast("CSR activity created successfully!", "success");
+    showToast("CSR Activity created successfully!", "success");
     setIsActivityModalOpen(false);
-    // Reset
     setNewActivityData({ title: '', iconType: 'tree', evidenceRequired: false });
   };
 
-  const handleJoinActivity = (id, title) => {
-    setActivities(activities.map(act => {
-      if (act.id === id) {
-        return { ...act, joined: act.joined + 1, hasJoined: true };
-      }
-      return act;
-    }));
-    showToast(`You joined ${title}!`, "success");
-  };
-
-  // Approve action (acts on selected checkboxes OR falls back to all Pending items if nothing is checked)
+  // Participation Approvals Handlers
   const handleApprove = () => {
-    const targets = selectedQueueIds.length > 0 
-      ? selectedQueueIds 
-      : participationList.filter(p => p.status === 'Pending').map(p => p.id);
-
+    const targets = selectedQueueIds.length > 0 ? selectedQueueIds : [];
     if (targets.length === 0) {
-      showToast("No pending items selected/found to approve.", "error");
+      showToast("Please select at least one pending record to approve.", "error");
       return;
     }
 
@@ -165,18 +158,14 @@ export default function Social() {
       return item;
     }));
 
-    showToast("Participation approved!", "success");
+    showToast("Participation approved successfully!", "success");
     setSelectedQueueIds([]);
   };
 
-  // Reject action
   const handleReject = () => {
-    const targets = selectedQueueIds.length > 0 
-      ? selectedQueueIds 
-      : participationList.filter(p => p.status === 'Pending').map(p => p.id);
-
+    const targets = selectedQueueIds.length > 0 ? selectedQueueIds : [];
     if (targets.length === 0) {
-      showToast("No pending items selected/found to reject.", "error");
+      showToast("Please select at least one pending record to reject.", "error");
       return;
     }
 
@@ -203,9 +192,9 @@ export default function Social() {
   const subTabs = ['CSR Activities', 'Employee Participation', 'Diversity Dashboard'];
 
   return (
-    <div className="flex flex-col min-w-0 overflow-y-auto bg-[#0B0F14] flex-1">
+    <div className="flex flex-col min-w-0 overflow-y-auto bg-bg-base flex-1">
       {/* SUB-NAV ROW */}
-      <div className="bg-[#11161D]/10 border-b border-[#1F2937]/60 px-6 py-4">
+      <div className="bg-bg-card/10 border-b border-border-sage px-6 py-4">
         <div className="flex flex-wrap gap-3">
           {subTabs.map((subSection) => {
             const isActive = subSection === activeSubTab;
@@ -216,10 +205,10 @@ export default function Social() {
                   setActiveSubTab(subSection);
                   setSelectedQueueIds([]);
                 }}
-                className={`px-4 py-2 rounded-lg text-xs font-semibold tracking-wide transition-all duration-200 ${
+                className={`px-4 py-2 rounded-lg text-xs font-semibold tracking-wide transition-all duration-200 cursor-pointer ${
                   isActive 
-                    ? 'bg-[#3B82F6] text-black shadow-md shadow-blue-500/10 font-bold' 
-                    : 'bg-[#11161D] border border-gray-800 text-gray-400 hover:text-gray-200 hover:border-gray-700'
+                    ? 'bg-accent-soc text-bg-base shadow-md shadow-accent-soc/10 font-bold' 
+                    : 'bg-bg-card border border-border-sage text-text-secondary hover:text-text-primary hover:border-text-secondary'
                 }`}
               >
                 {subSection}
@@ -235,16 +224,16 @@ export default function Social() {
           <section className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <h2 className="text-xl font-bold text-white tracking-tight">CSR Activities</h2>
-                <p className="text-xs text-gray-400 mt-1">Review corporate social responsibility activities and track team involvement.</p>
+                <h2 className="text-xl font-bold font-display text-text-primary tracking-tight">CSR Activities</h2>
+                <p className="text-xs text-text-secondary mt-1 font-medium">Review corporate social responsibility activities and track team involvement.</p>
               </div>
               <div>
                 <button 
                   onClick={() => setIsActivityModalOpen(true)}
-                  className="flex items-center space-x-1.5 px-3.5 py-2 bg-[#3B82F6] hover:bg-[#2563EB] text-black font-bold text-xs rounded-lg transition-all duration-150 active:scale-[0.98]"
+                  className="flex items-center space-x-1.5 px-3.5 py-2 bg-gradient-to-r from-accent-soc to-blue-600 hover:brightness-110 text-bg-base font-extrabold text-xs rounded-lg transition-all active:scale-[0.98] cursor-pointer shadow-md shadow-accent-soc/5"
                 >
                   <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                  <span>New Activity</span>
+                  <span className="uppercase tracking-wider">New Activity</span>
                 </button>
               </div>
             </div>
@@ -254,16 +243,16 @@ export default function Social() {
               {activities.map((activity) => (
                 <div 
                   key={activity.id}
-                  className="bg-[#11161D] border border-gray-800/80 rounded-2xl p-5 hover:scale-[1.01] hover:shadow-lg hover:shadow-blue-950/5 transition-all duration-300 flex flex-col justify-between min-h-[190px]"
+                  className="bg-bg-card border border-border-sage rounded-2xl p-5 hover:scale-[1.01] hover:shadow-premium-blue transition-all duration-300 flex flex-col justify-between min-h-[190px]"
                 >
                   <div className="space-y-3.5">
                     <div className="flex items-center space-x-3">
-                      <div className="p-2 rounded-lg bg-gray-800/40">
+                      <div className="p-2 rounded-lg bg-accent-soc/10 text-accent-soc">
                         {renderActivityIcon(activity.iconType)}
                       </div>
-                      <h3 className="font-bold text-white text-sm tracking-wide">{activity.title}</h3>
+                      <h3 className="font-bold text-text-primary text-sm tracking-wide font-display">{activity.title}</h3>
                     </div>
-                    <p className="text-[12px] text-gray-400 font-medium">
+                    <p className="text-xs text-text-secondary font-semibold">
                       {activity.joined} joined
                     </p>
                   </div>
@@ -271,13 +260,13 @@ export default function Social() {
                   <div className="space-y-3.5 mt-4">
                     <div className="flex items-center space-x-1.5">
                       {activity.evidenceRequired ? (
-                        <span className="flex items-center text-[10px] font-bold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-                          <Lock className="w-3.5 h-3.5 mr-1" />
+                        <span className="flex items-center text-[9px] font-bold text-accent-gam bg-accent-gam/10 px-2 py-0.5 rounded-full border border-accent-gam/20 uppercase tracking-wider">
+                          <Lock className="w-3 h-3 mr-1" />
                           Evidence Required
                         </span>
                       ) : (
-                        <span className="flex items-center text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                          <BookOpen className="w-3.5 h-3.5 mr-1" />
+                        <span className="flex items-center text-[9px] font-bold text-accent-env bg-accent-env/10 px-2 py-0.5 rounded-full border border-accent-env/20 uppercase tracking-wider">
+                          <BookOpen className="w-3 h-3 mr-1" />
                           Open
                         </span>
                       )}
@@ -285,7 +274,11 @@ export default function Social() {
                     <button 
                       disabled={activity.hasJoined}
                       onClick={() => handleJoinActivity(activity.id, activity.title)}
-                      className={`w-full py-2 text-xs font-bold rounded-lg transition-colors duration-150 ${activity.hasJoined ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'bg-[#3B82F6] hover:bg-[#2563EB] text-black'}`}
+                      className={`w-full py-2 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
+                        activity.hasJoined 
+                          ? 'bg-bg-base text-text-secondary cursor-not-allowed border border-border-sage/40' 
+                          : 'bg-accent-soc hover:brightness-110 text-bg-base'
+                      }`}
                     >
                       {activity.hasJoined ? 'Joined ✓' : 'Join'}
                     </button>
@@ -298,15 +291,15 @@ export default function Social() {
 
         {activeSubTab === 'Employee Participation' && (
           <section className="space-y-4">
-            <div className="flex items-center space-x-2 text-xs font-semibold text-gray-400 uppercase tracking-wider pl-1">
-              <span>Employee Participation: approval queue</span>
+            <div className="flex items-center space-x-2 text-[10px] font-extrabold text-text-secondary uppercase tracking-wider pl-1 font-display">
+              <span>Employee Participation: Approval Queue</span>
             </div>
 
-            <div className="bg-[#11161D] border border-gray-800/85 rounded-2xl overflow-hidden shadow-lg">
+            <div className="bg-bg-card border border-border-sage rounded-2xl overflow-hidden shadow-lg shadow-brand/5">
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-[700px]">
+                <table className="w-full text-left border-collapse min-w-[700px] text-xs">
                   <thead>
-                    <tr className="bg-[#171D26] border-b border-gray-800 text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                    <tr className="bg-bg-card/85 border-b border-border-sage text-[10px] font-bold text-text-secondary uppercase tracking-wider font-display">
                       <th className="py-4 px-6 w-8"></th>
                       <th className="py-4 px-6">Employee</th>
                       <th className="py-4 px-6">Activity/Challenge</th>
@@ -315,13 +308,13 @@ export default function Social() {
                       <th className="py-4 px-6">Approval</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-800/60 text-xs text-gray-300">
+                  <tbody className="divide-y divide-border-sage/40 text-text-primary">
                     {participationList.map((item) => {
                       let badgeStyle = "";
                       if (item.status === "Pending") {
-                        badgeStyle = "bg-amber-500/10 text-amber-500 border border-amber-500/20";
+                        badgeStyle = "bg-accent-gam/10 text-accent-gam border border-accent-gam/20";
                       } else if (item.status === "Approved") {
-                        badgeStyle = "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+                        badgeStyle = "bg-accent-env/10 text-accent-env border border-accent-env/20";
                       } else if (item.status === "Rejected") {
                         badgeStyle = "bg-red-500/10 text-red-400 border border-red-500/20";
                       }
@@ -332,7 +325,7 @@ export default function Social() {
                       return (
                         <tr 
                           key={item.id} 
-                          className={`hover:bg-gray-800/15 transition-colors duration-150 group cursor-pointer ${isSelected ? 'bg-blue-500/5 hover:bg-blue-500/10' : ''}`}
+                          className={`hover:bg-bg-base/30 transition-colors duration-150 group cursor-pointer ${isSelected ? 'bg-accent-soc/5 hover:bg-accent-soc/10' : ''}`}
                           onClick={() => isPending && handleToggleSelectRow(item.id)}
                         >
                           <td className="py-4 px-6 text-center">
@@ -341,33 +334,33 @@ export default function Social() {
                                 type="checkbox"
                                 checked={isSelected}
                                 onChange={() => {}} // toggled on row click
-                                className="rounded border-gray-700 bg-gray-800 text-blue-500 focus:ring-0 focus:ring-offset-0"
+                                className="rounded border-border-sage bg-bg-base text-accent-soc focus:ring-0 focus:ring-offset-0"
                               />
                             ) : (
-                              <span className="text-gray-600 font-mono text-[9px]">-</span>
+                              <span className="text-text-secondary font-mono text-[9px]">-</span>
                             )}
                           </td>
-                          <td className="py-4 px-6 font-semibold text-white group-hover:text-blue-400 transition-colors">
+                          <td className="py-4 px-6 font-bold text-text-primary group-hover:text-accent-soc transition-colors font-display">
                             {item.employee}
                           </td>
-                          <td className="py-4 px-6 text-gray-400 font-medium">
+                          <td className="py-4 px-6 text-text-secondary font-semibold">
                             {item.activity}
                           </td>
                           <td className="py-4 px-6">
-                            <span className="inline-flex items-center space-x-1.5 bg-gray-800/40 border border-gray-800 hover:border-gray-700 px-2.5 py-1 rounded-md text-[11px] font-mono text-gray-300 transition-colors cursor-pointer">
+                            <span className="inline-flex items-center space-x-1.5 bg-bg-base border border-border-sage hover:border-text-secondary px-2.5 py-1 rounded-md text-[10px] font-mono text-text-primary transition-colors cursor-pointer">
                               {item.isImage ? (
-                                <Paperclip className="w-3 h-3 text-gray-500" />
+                                <Paperclip className="w-3 h-3 text-text-secondary" />
                               ) : (
-                                <FileText className="w-3 h-3 text-gray-500" />
+                                <FileText className="w-3 h-3 text-text-secondary" />
                               )}
                               <span>{item.proof}</span>
                             </span>
                           </td>
-                          <td className="py-4 px-6 text-right font-mono font-bold text-white">
+                          <td className="py-4 px-6 text-right font-mono font-bold text-text-primary">
                             {item.points}
                           </td>
                           <td className="py-4 px-6">
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${badgeStyle}`}>
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${badgeStyle}`}>
                               {item.status}
                             </span>
                           </td>
@@ -382,32 +375,32 @@ export default function Social() {
             <div className="flex justify-end space-x-3 pt-2">
               <button 
                 onClick={handleReject}
-                className="flex items-center space-x-1.5 px-4 py-2.5 bg-[#EF4444] hover:bg-[#DC2626] text-white font-bold text-xs rounded-lg shadow-lg shadow-red-950/20 transition-all duration-150 active:scale-[0.98]"
+                className="flex items-center space-x-1.5 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white font-bold text-xs rounded-lg shadow-md transition-all active:scale-[0.98] cursor-pointer"
               >
                 <X className="w-4 h-4" />
-                <span>Reject</span>
+                <span className="uppercase tracking-wider">Reject</span>
               </button>
               
               <button 
                 onClick={handleApprove}
-                className="flex items-center space-x-1.5 px-4 py-2.5 bg-[#3B82F6] hover:bg-[#2563EB] text-black font-bold text-xs rounded-lg shadow-lg shadow-blue-950/20 transition-all duration-150 active:scale-[0.98]"
+                className="flex items-center space-x-1.5 px-4 py-2.5 bg-accent-env hover:bg-emerald-600 text-bg-base font-bold text-xs rounded-lg shadow-md transition-all active:scale-[0.98] cursor-pointer"
               >
                 <Check className="w-4 h-4 stroke-[3]" />
-                <span>Approve</span>
+                <span className="uppercase tracking-wider">Approve</span>
               </button>
             </div>
           </section>
         )}
 
         {activeSubTab === 'Diversity Dashboard' && (
-          <div className="bg-[#11161D] border border-gray-800/80 rounded-2xl p-12 flex flex-col items-center justify-center text-center min-h-[300px]">
+          <div className="bg-bg-card border border-border-sage rounded-2xl p-12 flex flex-col items-center justify-center text-center min-h-[300px]">
             <span className="text-3xl mb-4">📊</span>
-            <h3 className="text-base font-semibold text-white tracking-wide">Diversity Dashboard</h3>
-            <p className="text-sm text-gray-500 mt-2 font-medium">Demographics, gender distribution, and cultural initiatives are tracked here.</p>
-            <div className="mt-6 flex flex-wrap justify-center gap-4 text-xs font-semibold text-gray-400">
-              <div className="bg-[#11161D] border border-gray-850 p-4 rounded-xl">Gender Diversity: <span className="text-blue-400 font-bold">48% F / 52% M</span></div>
-              <div className="bg-[#11161D] border border-gray-850 p-4 rounded-xl">Veteran Hires: <span className="text-emerald-400 font-bold">5.4%</span></div>
-              <div className="bg-[#11161D] border border-gray-850 p-4 rounded-xl">Inclusion Programs: <span className="text-purple-400 font-bold">8 Active</span></div>
+            <h3 className="text-base font-bold text-text-primary tracking-wide font-display uppercase">Diversity Dashboard</h3>
+            <p className="text-xs text-text-secondary mt-2 font-medium">Demographics, gender distribution, and cultural initiatives are tracked here.</p>
+            <div className="mt-6 flex flex-wrap justify-center gap-4 text-xs font-bold text-text-secondary">
+              <div className="bg-bg-base border border-border-sage/80 p-4 rounded-xl">Gender Diversity: <span className="text-accent-soc font-bold">48% F / 52% M</span></div>
+              <div className="bg-bg-base border border-border-sage/80 p-4 rounded-xl">Veteran Hires: <span className="text-accent-env font-bold">5.4%</span></div>
+              <div className="bg-bg-base border border-border-sage/80 p-4 rounded-xl">Inclusion Programs: <span className="text-accent-gov font-bold">8 Active</span></div>
             </div>
           </div>
         )}
@@ -419,26 +412,26 @@ export default function Social() {
         onClose={() => setIsActivityModalOpen(false)}
         title="Create CSR Activity"
         confirmText="Create Activity"
-        confirmColorClass="bg-[#3B82F6] hover:bg-[#2563EB] text-black font-bold"
+        confirmColorClass="bg-accent-soc hover:bg-blue-600 text-bg-base font-bold"
         onConfirm={handleCreateActivity}
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Activity Name</label>
+            <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Activity Name</label>
             <input
               type="text"
               value={newActivityData.title}
               onChange={(e) => setNewActivityData({ ...newActivityData, title: e.target.value })}
               placeholder="e.g. Community Garden Prep"
-              className="w-full bg-[#0B0F14] border border-gray-800 rounded-lg p-2 text-xs text-gray-300 focus:outline-none focus:border-blue-500"
+              className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary placeholder-text-secondary/40 focus:outline-none focus:border-accent-soc"
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Category Icon</label>
+            <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Category Icon</label>
             <select
               value={newActivityData.iconType}
               onChange={(e) => setNewActivityData({ ...newActivityData, iconType: e.target.value })}
-              className="w-full bg-[#0B0F14] border border-gray-800 rounded-lg p-2 text-xs text-gray-300 focus:outline-none focus:border-blue-500"
+              className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary focus:outline-none focus:border-accent-soc"
             >
               <option value="tree">Environmental / Plant</option>
               <option value="droplet">Medical / Blood Donation</option>
@@ -453,9 +446,9 @@ export default function Social() {
               id="evidenceRequired"
               checked={newActivityData.evidenceRequired}
               onChange={(e) => setNewActivityData({ ...newActivityData, evidenceRequired: e.target.checked })}
-              className="rounded border-gray-700 bg-gray-800 text-blue-500 focus:ring-0"
+              className="rounded border-border-sage bg-bg-base text-accent-soc focus:ring-0"
             />
-            <label htmlFor="evidenceRequired" className="text-xs font-semibold text-gray-300 cursor-pointer">
+            <label htmlFor="evidenceRequired" className="text-xs font-bold text-text-secondary cursor-pointer">
               Require photo/receipt evidence for approval
             </label>
           </div>

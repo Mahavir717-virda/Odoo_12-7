@@ -28,10 +28,10 @@ export function ToastProvider({ children }) {
       {/* Toast Notification Container */}
       <div className="fixed top-4 right-4 z-[9999] flex flex-col gap-3 pointer-events-none max-w-sm w-full">
         {toasts.map((toast) => {
-          let accentColor = 'border-blue-500 text-blue-400';
+          let accentColor = 'border-brand text-brand';
           let Icon = Info;
           if (toast.type === 'success') {
-            accentColor = 'border-emerald-500 text-emerald-400';
+            accentColor = 'border-accent-env text-accent-env';
             Icon = CheckCircle;
           } else if (toast.type === 'error') {
             accentColor = 'border-red-500 text-red-400';
@@ -41,7 +41,7 @@ export function ToastProvider({ children }) {
           return (
             <div
               key={toast.id}
-              className={`pointer-events-auto bg-[#11161D] border-l-4 ${accentColor} text-gray-200 p-4 rounded-xl shadow-2xl flex items-start space-x-3 animate-fade-in transition-all duration-300`}
+              className={`pointer-events-auto bg-bg-card border border-border-sage border-l-4 ${accentColor} text-text-primary p-4 rounded-xl shadow-2xl flex items-start space-x-3 animate-fade-in transition-all duration-300`}
               role="alert"
             >
               <Icon className="w-5 h-5 flex-shrink-0 mt-0.5" />
@@ -50,7 +50,7 @@ export function ToastProvider({ children }) {
               </div>
               <button
                 onClick={() => removeToast(toast.id)}
-                className="text-gray-500 hover:text-gray-300 transition-colors flex-shrink-0 focus:outline-none"
+                className="text-text-secondary hover:text-text-primary transition-colors flex-shrink-0 focus:outline-none"
               >
                 <X className="w-4 h-4" />
               </button>
