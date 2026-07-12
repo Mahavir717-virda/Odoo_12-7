@@ -1,15 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../../context/ToastContext';
 import { useAuth } from '../../context/AuthContext';
 import { TERMS } from '../../constants/terminology';
 import { 
-  getStorageItem, 
-  setStorageItem, 
-  recalculateAllScores, 
-  triggerPointsAndBadgeUnlocks 
-} from '../../utils/storage';
-import { calculateCO2, calculateGoalProgress, getGoalStatus } from '../../utils/calculations';
+  dashboardService,
+  reportService,
+  challengeService,
+  dropdownService,
+  productProfileService,
+  carbonTransactionService
+} from '../../services/api';
 import Modal from '../../components/Modal';
 import { 
   CheckCircle, 
@@ -26,7 +27,8 @@ import {
   ChevronRight, 
   ArrowUpRight, 
   Activity,
-  Lock
+  Lock,
+  Loader
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -45,39 +47,129 @@ export default function Dashboard() {
   const { user, canEdit, canAccess, createNotification } = useAuth();
   const navigate = useNavigate();
 
-  // Load live score calculations
-  const [scoresData, setScoresData] = useState(() => recalculateAllScores());
-  const [emissionsData, setEmissionsData] = useState(() => getStorageItem('db_transactions', []));
-  const [challengesList, setChallengesList] = useState(() => getStorageItem('db_challenges', []));
-  const [factors, setFactors] = useState(() => getStorageItem('db_factors', []));
+  // Loading and Dynamic data states
+  const [isLoading, setIsLoading] = useState(true);
+  const [scoresData, setScoresData] = useState({
+    overallScore: 0,
+    environmentalScore: 0,
+    socialScore: 0,
+    governanceScore: 0,
+  });
+  const [chartEmissions, setChartEmissions] = useState([]);
+  const [departmentScores, setDepartmentScores] = useState([]);
+  const [challengesList, setChallengesList] = useState([]);
+  const [myParticipations, setMyParticipations] = useState([]);
+  const [recentActivities, setRecentActivities] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [products, setProducts] = useState([]);
 
   // Modals state
   const [isCarbonModalOpen, setIsCarbonModalOpen] = useState(false);
   const [isChallengeModalOpen, setIsChallengeModalOpen] = useState(false);
 
   // Carbon form state
-  const [carbonDept, setCarbonDept] = useState('Manufacturing');
-  const [selectedFactorId, setSelectedFactorId] = useState(1);
+  const [carbonDeptId, setCarbonDeptId] = useState('');
+  const [selectedProductId, setSelectedProductId] = useState('');
   const [carbonQty, setCarbonQty] = useState('');
   const [carbonDate, setCarbonDate] = useState(new Date().toISOString().split('T')[0]);
 
   // Selected factor details
-  const currentFactor = factors.find(f => f.id === parseInt(selectedFactorId)) || factors[0];
-  const calculatedEmissions = currentFactor ? calculateCO2(carbonQty, currentFactor.factorValue) : 0;
+  const currentProduct = products.find(p => p.id === selectedProductId) || products[0];
+  const calculatedEmissions = currentProduct ? (parseFloat(carbonQty) || 0) * (currentProduct.emissionFactorValue || 0) : 0;
 
-  // Sync data when storage updates
-  const syncScores = () => {
-    const fresh = recalculateAllScores();
-    setScoresData(fresh);
-    setEmissionsData(getStorageItem('db_transactions', []));
-    setChallengesList(getStorageItem('db_challenges', []));
-  };
+  // Fetch dynamic data
+  const fetchDashboardData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const [esgRes, envRes, chRes, deptsRes, prodsRes, partRes] = await Promise.allSettled([
+        reportService.getEsgSummary(),
+        reportService.getEnvironmental(),
+        challengeService.getAll(),
+        dropdownService.getDepartments(),
+        productProfileService.getAll(),
+        challengeService.getParticipants ? challengeService.getParticipants() : Promise.resolve([])
+      ]);
+
+      if (esgRes.status === 'fulfilled') {
+        const data = esgRes.value;
+        setScoresData({
+          overallScore: data.overallScore || 0,
+          environmentalScore: data.environmentalScore || 0,
+          socialScore: data.socialScore || 0,
+          governanceScore: data.governanceScore || 0,
+        });
+
+        // Set department ranking chart data
+        const rankings = data.charts?.departmentRankings || [];
+        const mappedRankings = rankings.map(item => {
+          let color = 'var(--color-accent-env)';
+          if (item.department === 'Logistics') color = 'var(--color-accent-gam)';
+          if (item.department === 'Corporate') color = 'var(--color-accent-gov)';
+          if (item.department === 'R&D') color = 'var(--color-accent-soc)';
+          return {
+            name: item.department.slice(0, 4),
+            score: item.Score,
+            color: color
+          };
+        });
+        setDepartmentScores(mappedRankings);
+
+        setRecentActivities(data.recentActivities || []);
+      }
+
+      if (envRes.status === 'fulfilled') {
+        const envData = envRes.value;
+        const trend = envData.charts?.monthlyTrend || [];
+        setChartEmissions(trend.map(item => ({
+          name: item.month,
+          Emissions: item.Carbon
+        })));
+      }
+
+      if (chRes.status === 'fulfilled') {
+        setChallengesList(chRes.value);
+      }
+
+      if (partRes.status === 'fulfilled' && user?._id) {
+        const parts = partRes.value;
+        const mine = parts.filter(p => p.employeeId?._id === user._id || p.employeeId === user._id);
+        setMyParticipations(mine.map(p => p.challengeId?._id || p.challengeId));
+      }
+
+      if (deptsRes.status === 'fulfilled') {
+        const depts = deptsRes.value;
+        setDepartments(depts);
+        if (depts.length > 0 && !carbonDeptId) {
+          setCarbonDeptId(depts[0].id);
+        }
+      }
+
+      if (prodsRes.status === 'fulfilled') {
+        const mappedProds = prodsRes.value.map(p => ({
+          id: p._id,
+          name: p.productName,
+          emissionFactorValue: p.emissionFactor?.emissionValue || 0,
+          unit: p.emissionFactor?.co2Unit || 'kg CO2e'
+        }));
+        setProducts(mappedProds);
+        if (mappedProds.length > 0 && !selectedProductId) {
+          setSelectedProductId(mappedProds[0].id);
+        }
+      }
+
+    } catch (err) {
+      console.error(err);
+      showToast("Error fetching dashboard data", "error");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [showToast, user?._id]);
 
   useEffect(() => {
-    syncScores();
-  }, []);
+    fetchDashboardData();
+  }, [fetchDashboardData]);
 
-  const handleCarbonSubmit = (e) => {
+  const handleCarbonSubmit = async (e) => {
     e.preventDefault();
     if (!carbonQty || !carbonDate) {
       showToast("Please fill in all carbon data fields.", "error");
@@ -91,121 +183,60 @@ export default function Dashboard() {
 
     showToast("Processing carbon entry...", "info");
     
-    setTimeout(() => {
-      // 1. Log Carbon Transaction
-      const transactions = getStorageItem('db_transactions', []);
-      const newTransaction = {
-        id: Date.now(),
-        date: carbonDate,
-        desc: `Logged emissions via ${currentFactor?.name || 'Factor'}`,
-        type: "Emission",
+    try {
+      const payload = {
+        department: carbonDeptId,
+        productESGProfile: selectedProductId,
         quantity: parseFloat(carbonQty),
-        factorValue: currentFactor?.factorValue || 0,
-        amountCO2: parseFloat((calculatedEmissions / 1000).toFixed(2)), // store as tCO2e
-        cost: "N/A",
-        department: carbonDept
+        transactionDate: new Date(carbonDate).toISOString(),
+        activityType: 'Emission',
+        remarks: `Logged emissions via ${currentProduct?.name || 'Product'}`
       };
       
-      const updatedTx = [newTransaction, ...transactions];
-      setStorageItem('db_transactions', updatedTx);
-
-      // 2. Recalculate Goals for that department
-      const goals = getStorageItem('db_goals', []);
-      const updatedGoals = goals.map(g => {
-        if (g.department === carbonDept && g.status !== 'Completed') {
-          const freshCurrent = parseFloat((g.currentCO2 + (calculatedEmissions / 1000)).toFixed(2));
-          const progress = calculateGoalProgress(freshCurrent, g.targetCO2);
-          return {
-            ...g,
-            currentCO2: freshCurrent,
-            progress: progress,
-            status: getGoalStatus(progress)
-          };
-        }
-        return g;
-      });
-      setStorageItem('db_goals', updatedGoals);
+      await carbonTransactionService.create(payload);
 
       // Create Notification
-      createNotification(
-        user?.id || 'all', 
-        'info', 
-        `New Carbon transaction logged for ${carbonDept}. Goal progress updated.`
-      );
+      if (createNotification) {
+        createNotification(
+          user?.id || 'all', 
+          'info', 
+          `New Carbon transaction logged. Goal progress updated.`
+        );
+      }
 
       showToast("Carbon data logged successfully!", "success");
       setIsCarbonModalOpen(false);
       setCarbonQty('');
-      
-      // Update local state scores
-      syncScores();
-    }, 800);
+      fetchDashboardData();
+    } catch (err) {
+      showToast(err.message || "Failed to log carbon data", "error");
+    }
   };
 
-  const handleJoinChallenge = (ch) => {
+  const handleJoinChallenge = async (ch) => {
     if (user?.role === 'Manager') {
       showToast("Managers cannot join challenges.", "error");
       return;
     }
 
-    showToast(`Joined challenge: ${ch.title}!`, "success");
-    
-    // Update challenge state
-    const challenges = getStorageItem('db_challenges', []);
-    const updated = challenges.map(item => {
-      if (item.id === ch.id) return { ...item, hasJoined: true };
-      return item;
-    });
-    setStorageItem('db_challenges', updated);
-
-    // Save participation
-    const parts = getStorageItem('db_challenge_participations', []);
-    const newPart = {
-      id: Date.now(),
-      name: user?.name || "Demo Employee",
-      department: user?.department || "Manufacturing",
-      challenge: ch.title,
-      xpEarned: ch.xp,
-      dateJoined: new Date().toISOString().split('T')[0],
-      status: "Pending" // requires manager approval
-    };
-    setStorageItem('db_challenge_participations', [newPart, ...parts]);
-
-    createNotification(user?.id, 'info', `Joined challenge: ${ch.title}. Pending approval.`);
-    setIsChallengeModalOpen(false);
-    syncScores();
+    try {
+      await challengeService.join(ch._id || ch.id);
+      showToast(`Joined challenge: ${ch.title}!`, "success");
+      setIsChallengeModalOpen(false);
+      fetchDashboardData();
+    } catch (err) {
+      showToast(err.message || "Failed to join challenge", "error");
+    }
   };
 
-  // Map transactions to linechart data (group by month of last 12 months)
-  const chartEmissions = [
-    { name: 'Jan', Emissions: 2100 },
-    { name: 'Feb', Emissions: 1950 },
-    { name: 'Mar', Emissions: 2300 },
-    { name: 'Apr', Emissions: 2200 },
-    { name: 'May', Emissions: 2550 },
-    { name: 'Jun', Emissions: 2800 },
-    { name: 'Jul', Emissions: 2650 },
-    { name: 'Aug', Emissions: 2900 },
-    { name: 'Sep', Emissions: 2850 },
-    { name: 'Oct', Emissions: 3100 },
-    { name: 'Nov', Emissions: 3050 },
-    { name: 'Dec', Emissions: 3400 },
-  ];
-
-  // Map dynamic department scores to barchart
-  const departmentsList = getStorageItem('db_departments', []);
-  const departmentScores = departmentsList.map(dept => {
-    const deptScore = scoresData.deptScores[dept.name]?.total || 75;
-    let color = 'var(--color-accent-env)';
-    if (dept.name === 'Logistics') color = 'var(--color-accent-gam)';
-    if (dept.name === 'Corporate') color = 'var(--color-accent-gov)';
-    if (dept.name === 'R&D') color = 'var(--color-accent-soc)';
-    return {
-      name: dept.name.slice(0, 4),
-      score: deptScore,
-      color: color
-    };
-  });
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+        <Loader className="w-8 h-8 text-brand animate-spin" />
+        <span className="text-xs text-text-secondary font-bold font-mono tracking-wider uppercase">Loading dynamic metrics...</span>
+      </div>
+    );
+  }
 
   return (
     <main className="p-6 space-y-6 max-w-7xl w-full mx-auto">
@@ -467,51 +498,21 @@ export default function Dashboard() {
             </h3>
             
             <div className="mt-4 divide-y divide-border-sage/40">
-              
-              <div className="py-3.5 flex items-start space-x-3.5 hover:bg-bg-base/30 px-2 rounded-lg transition-colors duration-150">
-                <div className="mt-0.5 p-1.5 rounded-lg bg-accent-env/15 text-accent-env">
-                  <CheckCircle className="w-4 h-4" />
+              {recentActivities.length === 0 && (
+                <p className="text-xs text-text-secondary py-8 text-center">No recent ESG activities logged.</p>
+              )}
+              {recentActivities.map((act) => (
+                <div key={act.id || act._id} className="py-3.5 flex items-start space-x-3.5 hover:bg-bg-base/30 px-2 rounded-lg transition-colors duration-150">
+                  <div className="mt-0.5 p-1.5 rounded-lg bg-brand/15 text-brand">
+                    <CheckCircle className="w-4 h-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-text-primary">{act.message}</p>
+                    <p className="text-[10px] text-text-secondary mt-0.5">{act.date}</p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-text-secondary mt-1" />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-text-primary">Priya completed 'Zero Waste Week'</p>
-                  <p className="text-[10px] text-text-secondary mt-0.5">Environmental Gamification • 2 hours ago</p>
-                </div>
-                <ChevronRight className="w-4 h-4 text-text-secondary mt-1" />
-              </div>
-
-              <div className="py-3.5 flex items-start space-x-3.5 hover:bg-bg-base/30 px-2 rounded-lg transition-colors duration-150">
-                <div className="mt-0.5 p-1.5 rounded-lg bg-red-500/15 text-red-400">
-                  <AlertTriangle className="w-4 h-4" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-text-primary">New compliance issue in Logistics</p>
-                  <p className="text-[10px] text-text-secondary mt-0.5">Governance Compliance • 5 hours ago</p>
-                </div>
-                <ChevronRight className="w-4 h-4 text-text-secondary mt-1" />
-              </div>
-
-              <div className="py-3.5 flex items-start space-x-3.5 hover:bg-bg-base/30 px-2 rounded-lg transition-colors duration-150">
-                <div className="mt-0.5 p-1.5 rounded-lg bg-brand/15 text-brand">
-                  <FileText className="w-4 h-4" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-text-primary">42 new Carbon Transactions logged</p>
-                  <p className="text-[10px] text-text-secondary mt-0.5">Environmental Accounting • 1 day ago</p>
-                </div>
-                <ChevronRight className="w-4 h-4 text-text-secondary mt-1" />
-              </div>
-
-              <div className="py-3.5 flex items-start space-x-3.5 hover:bg-bg-base/30 px-2 rounded-lg transition-colors duration-150">
-                <div className="mt-0.5 p-1.5 rounded-lg bg-accent-gov/15 text-accent-gov">
-                  <ClipboardCheck className="w-4 h-4" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-text-primary">R&D acknowledged Anti-Corruption Policy</p>
-                  <p className="text-[10px] text-text-secondary mt-0.5">Governance Policy • 2 days ago</p>
-                </div>
-                <ChevronRight className="w-4 h-4 text-text-secondary mt-1" />
-              </div>
-
+              ))}
             </div>
           </div>
         </div>
@@ -605,26 +606,24 @@ export default function Dashboard() {
           <div>
             <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Department</label>
             <select
-              value={carbonDept}
-              onChange={(e) => setCarbonDept(e.target.value)}
+              value={carbonDeptId}
+              onChange={(e) => setCarbonDeptId(e.target.value)}
               className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary focus:outline-none focus:border-brand"
             >
-              <option>Sales</option>
-              <option>Manufacturing</option>
-              <option>Logistics</option>
-              <option>Corporate</option>
-              <option>R&D</option>
+              {departments.map(d => (
+                <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
             </select>
           </div>
           <div>
-            <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Emission Factor</label>
+            <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Product Profile</label>
             <select
-              value={selectedFactorId}
-              onChange={(e) => setSelectedFactorId(e.target.value)}
+              value={selectedProductId}
+              onChange={(e) => setSelectedProductId(e.target.value)}
               className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary focus:outline-none focus:border-brand"
             >
-              {factors.map(f => (
-                <option key={f.id} value={f.id}>{f.name} ({f.factorValue} {f.unit})</option>
+              {products.map(p => (
+                <option key={p.id} value={p.id}>{p.name} ({p.emissionFactorValue} {p.unit})</option>
               ))}
             </select>
           </div>
@@ -649,11 +648,11 @@ export default function Dashboard() {
           </div>
           
           {/* Live Preview Calculation */}
-          {carbonQty && currentFactor && (
+          {carbonQty && currentProduct && (
             <div className="p-3 bg-brand/5 border border-brand/20 rounded-lg text-[11px] font-semibold text-brand">
               🧮 Live Calculation Preview: <br/>
               <span className="font-bold font-mono">
-                {carbonQty} units × {currentFactor.factorValue} {currentFactor.unit} = {calculatedEmissions.toLocaleString()} kg CO₂ ({parseFloat((calculatedEmissions / 1000).toFixed(2))} tCO2e)
+                {carbonQty} units × {currentProduct.emissionFactorValue} {currentProduct.unit} = {(calculatedEmissions).toLocaleString()} kg CO₂ ({parseFloat((calculatedEmissions / 1000).toFixed(2))} tCO2e)
               </span>
             </div>
           )}
@@ -670,11 +669,11 @@ export default function Dashboard() {
       >
         <div className="space-y-4 divide-y divide-border-sage/40">
           <p className="text-[11px] text-text-secondary">Select an active challenge from the platform to join.</p>
-          {challengesList.filter(ch => !ch.hasJoined).map((ch) => (
-            <div key={ch.id} className="pt-4 flex items-center justify-between">
+          {challengesList.filter(ch => !myParticipations.includes(ch._id || ch.id)).map((ch) => (
+            <div key={ch._id || ch.id} className="pt-4 flex items-center justify-between">
               <div>
-                <h4 className="text-xs font-bold text-text-primary font-display">{ch.title}</h4>
-                <p className="text-[10px] text-text-secondary mt-0.5">XP Reward: {ch.xp} • Difficulty: {ch.difficulty}</p>
+                <h4 className="text-xs font-bold text-text-primary font-display">{ch.title || ch.name}</h4>
+                <p className="text-[10px] text-text-secondary mt-0.5">XP Reward: {ch.xpReward} • Difficulty: {ch.difficulty}</p>
               </div>
               <button
                 onClick={() => handleJoinChallenge(ch)}
@@ -684,7 +683,7 @@ export default function Dashboard() {
               </button>
             </div>
           ))}
-          {challengesList.filter(ch => !ch.hasJoined).length === 0 && (
+          {challengesList.filter(ch => !myParticipations.includes(ch._id || ch.id)).length === 0 && (
             <p className="text-xs text-text-secondary pt-4 text-center">No new challenges available to join.</p>
           )}
         </div>

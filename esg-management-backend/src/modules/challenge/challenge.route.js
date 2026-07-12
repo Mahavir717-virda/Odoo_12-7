@@ -27,18 +27,6 @@ router
   .post(createCategoryValidation, controller.createCategory)
   .get(controller.getCategories);
 
-// Challenge CRUD routes
-router
-  .route('/')
-  .post(createChallengeValidation, controller.createChallenge)
-  .get(queryChallengesValidation, controller.getChallenges);
-
-router
-  .route('/:id')
-  .get(getChallengeByIdValidation, controller.getChallengeById)
-  .put(updateChallengeValidation, controller.updateChallenge)
-  .delete(getChallengeByIdValidation, controller.deleteChallenge);
-
 // Joining & Progress routes
 router.post('/join', joinChallengeValidation, controller.joinChallenge);
 router.post('/progress', controller.updateProgress);
@@ -63,5 +51,17 @@ router
   .get(controller.getRewards);
 
 router.post('/rewards/redeem', redeemRewardValidation, controller.redeemReward);
+
+// Challenge CRUD routes
+router
+  .route('/')
+  .post(createChallengeValidation, controller.createChallenge)
+  .get(queryChallengesValidation, controller.getChallenges);
+
+router
+  .route('/:id')
+  .get(getChallengeByIdValidation, controller.getChallengeById)
+  .put(updateChallengeValidation, controller.updateChallenge)
+  .delete(getChallengeByIdValidation, controller.deleteChallenge);
 
 export default router;
