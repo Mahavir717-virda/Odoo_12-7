@@ -16,6 +16,11 @@ router
   .get(queryCSRsValidation, controller.getCSRs);
 
 router
+  .route('/diversity')
+  .get(controller.getDiversity)
+  .put(controller.updateDiversity);
+
+router
   .route('/:id')
   .get(getCSRByIdValidation, controller.getCSRById)
   .put(updateCSRValidation, controller.updateCSR)

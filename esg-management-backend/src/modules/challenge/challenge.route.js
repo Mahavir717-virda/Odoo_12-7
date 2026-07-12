@@ -61,6 +61,12 @@ router
 
 router.post('/rewards/redeem', redeemRewardValidation, controller.redeemReward);
 
+// Challenge CRUD routes
+router
+  .route('/')
+  .post(createChallengeValidation, controller.createChallenge)
+  .get(queryChallengesValidation, controller.getChallenges);
+
 router
   .route('/:id')
   .get(getChallengeByIdValidation, controller.getChallengeById)

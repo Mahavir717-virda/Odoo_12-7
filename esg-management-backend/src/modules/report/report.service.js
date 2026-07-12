@@ -46,7 +46,14 @@ export class ReportService {
       EmissionFactor.find({ isDeleted: false }).populate('category').lean(),
       ProductESGProfile.find(deptId ? { department: deptId, isDeleted: false } : { isDeleted: false }).lean()
     ]);
-
+    const transactions = await CarbonTransaction.find(query)
+      .populate({
+        path: 'emissionFactor',
+        populate: {
+          path: 'category'
+        }
+      })
+      .sort({ transactionDate: -1 });
     // Aggregations
     let totalCarbon = 0;
     let scope1 = 0;
@@ -64,11 +71,16 @@ export class ReportService {
       const scopeStr = typeof scope === 'object' ? (scope.name || JSON.stringify(scope)) : String(scope);
       if (scopeStr.includes('1')) scope1 += carbon;
       else if (scopeStr.includes('2')) scope2 += carbon;
+      // Group by scope/category
+      const scope = t.emissionFactor?.category?.name || 'Scope 3';
+      if (scope.includes('1')) scope1 += carbon;
+      else if (scope.includes('2')) scope2 += carbon;
       else scope3 += carbon;
 
       const d = t.department?.name || 'Unassigned';
       deptMap[d] = (deptMap[d] || 0) + carbon;
 
+      // Group by emission factor name
       const fName = t.emissionFactor?.name || 'Other';
       factorMap[fName] = (factorMap[fName] || 0) + carbon;
 
@@ -334,7 +346,6 @@ export class ReportService {
         policiesPublished,
         policiesAccepted,
         pendingPolicies,
-        complianceScore,
         auditsPassed,
         auditsFailed,
         openIssues,
@@ -390,7 +401,11 @@ export class ReportService {
     } catch (e) {}
 
     const overallScore = Math.round((envScore * (envW / 100)) + (socScore * (socW / 100)) + (govScore * (govW / 100)));
+    const envScore = await Goal.countDocuments({ isDeleted: { $ne: true } });
+    const socScore = await CSR.countDocuments({ isDeleted: { $ne: true } });
+    const govScore = await Policy.countDocuments({ isDeleted: { $ne: true } });
 
+    const overallScore = envScore + socScore + govScore;
     const Department = mongoose.model('Department');
     const depts = await Department.find({ isDeleted: false });
     const departmentRankings = depts.map(d => {
@@ -416,6 +431,9 @@ export class ReportService {
         governance: govW
       },
       overallScore,
+      environmentalScore: envScore,
+      socialScore: socScore,
+      governanceScore: govScore,
       metrics: {
         carbonTransactionsCount: env.data.transactions.length,
         csrProjectsCount: soc.data.csrProjects.length,

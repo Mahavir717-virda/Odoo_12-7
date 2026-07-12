@@ -30,6 +30,18 @@ export default function Settings() {
     emailAlerts: false
   }));
 
+  const [socialConfig, setSocialConfig] = useState(() => getStorageItem('db_social_config', {
+    approvalWorkflow: 'Single Approver',
+    evidenceRequirement: true,
+    defaultRewardPoints: 100,
+    defaultMaxParticipants: 50,
+    registrationDeadlineCutoff: 2,
+    certificateTemplate: 'Classic Sage',
+    csrCategories: ["ENVIRONMENT", "HEALTH", "COMMUNITY", "EDUCATION"],
+    trainingCategories: ["Environmental", "Social", "Governance"],
+    socialNotifs: { activityPublished: true, registrationApproved: true, rewardCredited: true }
+  }));
+
   const [departments, setDepartments] = useState([]);
   const [categories, setCategories] = useState([]);
 
@@ -90,6 +102,14 @@ export default function Settings() {
       console.error(err);
       showToast("Error updating preferences.", "error");
     }
+  };
+
+  const handleSaveSocialConfig = (key, value) => {
+    if (!isAdmin) return;
+    const updated = { ...socialConfig, [key]: value };
+    setSocialConfig(updated);
+    setStorageItem('db_social_config', updated);
+    showToast("Social configuration updated successfully.", "success");
   };
 
   const fetchSettingsData = async () => {
@@ -309,6 +329,9 @@ export default function Settings() {
   };
 
   const subTabs = ['Departments', 'Categories', 'ESG Configuration', 'Notification Settings'];
+  if (user?.role === 'Admin' || user?.role === 'HR') {
+    subTabs.push('Social Configuration');
+  }
 
   return (
     <div className="flex flex-col min-w-0 overflow-y-auto bg-bg-base flex-1">
@@ -733,6 +756,126 @@ export default function Settings() {
                   </div>
                 </div>
               )}
+            </div>
+          </section>
+        )}
+
+        {/* --- SOCIAL CONFIGURATION TAB --- */}
+        {activeSubTab === 'Social Configuration' && (
+          <section className="bg-bg-card border border-border-sage rounded-2xl p-6 space-y-6 shadow-lg shadow-brand/5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2.5">
+                <Settings2 className="w-5 h-5 text-text-secondary" />
+                <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider font-display">
+                  Social & Engagement Configuration
+                </h3>
+              </div>
+              {!isAdmin && (
+                <span className="text-[9px] text-text-secondary font-bold bg-bg-base border border-border-sage px-2 py-1 rounded-full uppercase tracking-wider">
+                  Read Only Mode (HR View)
+                </span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Left Column Settings */}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1">Approval Workflow</label>
+                  <select
+                    disabled={!isAdmin}
+                    value={socialConfig.approvalWorkflow}
+                    onChange={(e) => handleSaveSocialConfig('approvalWorkflow', e.target.value)}
+                    className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary focus:outline-none"
+                  >
+                    <option>Single Approver</option>
+                    <option>Multi-Step Approval</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center justify-between py-2 border-b border-border-sage/40">
+                  <span className="text-xs font-semibold text-text-primary">Evidence Requirement (Global Default)</span>
+                  <button 
+                    disabled={!isAdmin}
+                    onClick={() => handleSaveSocialConfig('evidenceRequirement', !socialConfig.evidenceRequirement)}
+                    className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors duration-300 focus:outline-none ${
+                      socialConfig.evidenceRequirement ? 'bg-accent-soc' : 'bg-bg-base border border-border-sage'
+                    } ${!isAdmin ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
+                  >
+                    <div className={`w-4 h-4 rounded-full shadow-md transform transition-transform duration-300 ${
+                      socialConfig.evidenceRequirement ? 'translate-x-5 bg-bg-base' : 'translate-x-0 bg-text-secondary'
+                    }`} />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1">Default Points</label>
+                    <input
+                      type="number"
+                      disabled={!isAdmin}
+                      value={socialConfig.defaultRewardPoints}
+                      onChange={(e) => handleSaveSocialConfig('defaultRewardPoints', parseInt(e.target.value) || 0)}
+                      className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1">Max Cap</label>
+                    <input
+                      type="number"
+                      disabled={!isAdmin}
+                      value={socialConfig.defaultMaxParticipants}
+                      onChange={(e) => handleSaveSocialConfig('defaultMaxParticipants', parseInt(e.target.value) || 0)}
+                      className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1">Cutoff Days</label>
+                    <input
+                      type="number"
+                      disabled={!isAdmin}
+                      value={socialConfig.registrationDeadlineCutoff}
+                      onChange={(e) => handleSaveSocialConfig('registrationDeadlineCutoff', parseInt(e.target.value) || 0)}
+                      className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column Settings */}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1">Certificate Template</label>
+                  <select
+                    disabled={!isAdmin}
+                    value={socialConfig.certificateTemplate}
+                    onChange={(e) => handleSaveSocialConfig('certificateTemplate', e.target.value)}
+                    className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary focus:outline-none"
+                  >
+                    <option>Classic Sage</option>
+                    <option>Modern Emerald</option>
+                    <option>Vibrant Corporate</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1">CSR Categories</label>
+                  <div className="flex flex-wrap gap-1.5 p-2.5 bg-bg-base/30 border border-border-sage/40 rounded-lg min-h-[42px]">
+                    {socialConfig.csrCategories.map(cat => (
+                      <span key={cat} className="text-[10px] bg-accent-soc/10 text-accent-soc font-bold px-2 py-0.5 rounded border border-accent-soc/20 font-mono">{cat}</span>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1">Training Categories</label>
+                  <div className="flex flex-wrap gap-1.5 p-2.5 bg-bg-base/30 border border-border-sage/40 rounded-lg min-h-[42px]">
+                    {socialConfig.trainingCategories.map(cat => (
+                      <span key={cat} className="text-[10px] bg-accent-env/10 text-accent-env font-bold px-2 py-0.5 rounded border border-accent-env/20 font-mono">{cat}</span>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
           </section>
         )}
