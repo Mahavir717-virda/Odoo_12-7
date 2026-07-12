@@ -4,15 +4,26 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 
 export default function ProtectedRoute({ allowedRoles }) {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, loading } = useAuth();
   const { showToast } = useToast();
   const location = useLocation();
 
   useEffect(() => {
-    if (isAuthenticated && allowedRoles && user && !allowedRoles.includes(user.role)) {
+    if (!loading && isAuthenticated && allowedRoles && user && !allowedRoles.includes(user.role)) {
       showToast("You don't have access to that section.", "error");
     }
-  }, [isAuthenticated, allowedRoles, user, showToast]);
+  }, [loading, isAuthenticated, allowedRoles, user, showToast]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-bg-base text-text-primary">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="w-10 h-10 border-4 border-accent-env border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-xs font-semibold uppercase tracking-widest text-text-secondary animate-pulse">Verifying Session...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
