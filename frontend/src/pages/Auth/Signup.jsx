@@ -11,7 +11,7 @@ export default function Signup() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [role, setRole] = useState('Employee'); // 'Employee' or 'Admin'
+  const [role, setRole] = useState('Employee');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
@@ -163,35 +163,22 @@ export default function Signup() {
 
           {/* Role selector Segmented Control */}
           <div className="space-y-1.5">
-            <label className="text-[10px] font-bold text-text-secondary uppercase tracking-wider block">
+            <label className="text-[10px] font-bold text-text-secondary uppercase tracking-wider block font-display">
               Assign Role
             </label>
-            <div className="flex bg-bg-base border border-border-sage rounded-lg p-1">
-              <button
-                type="button"
-                onClick={() => setRole('Employee')}
-                className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all duration-200 cursor-pointer ${
-                  role === 'Employee'
-                    ? 'bg-brand text-bg-base shadow-md'
-                    : 'text-text-secondary hover:text-text-primary'
-                }`}
-                disabled={isLoading}
-              >
-                Employee
-              </button>
-              <button
-                type="button"
-                onClick={() => setRole('Admin')}
-                className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all duration-200 cursor-pointer ${
-                  role === 'Admin'
-                    ? 'bg-brand text-bg-base shadow-md'
-                    : 'text-text-secondary hover:text-text-primary'
-                }`}
-                disabled={isLoading}
-              >
-                Admin
-              </button>
-            </div>
+            <select
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all font-semibold"
+              disabled={isLoading}
+            >
+              <option value="Employee">Employee (Default)</option>
+              <option value="Admin">Admin</option>
+              <option value="HR">HR</option>
+              <option value="Manager">Manager</option>
+              <option value="Sustainability Team">Sustainability Team</option>
+              <option value="Compliance Team">Compliance Team</option>
+            </select>
           </div>
 
           {/* Submit button */}

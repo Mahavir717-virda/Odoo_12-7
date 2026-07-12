@@ -1,6 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
+import { TERMS } from '../../constants/terminology';
+import { 
+  getStorageItem, 
+  setStorageItem, 
+  recalculateAllScores, 
+  triggerPointsAndBadgeUnlocks 
+} from '../../utils/storage';
+import { calculateCO2, calculateGoalProgress, getGoalStatus } from '../../utils/calculations';
 import Modal from '../../components/Modal';
 import { 
   CheckCircle, 
@@ -16,7 +25,8 @@ import {
   Award, 
   ChevronRight, 
   ArrowUpRight, 
-  Activity
+  Activity,
+  Lock
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -30,46 +40,16 @@ import {
   Cell 
 } from 'recharts';
 
-// Mock Chart Data
-const initialEmissionsData = [
-  { name: 'Jan', Emissions: 2100 },
-  { name: 'Feb', Emissions: 1950 },
-  { name: 'Mar', Emissions: 2300 },
-  { name: 'Apr', Emissions: 2200 },
-  { name: 'May', Emissions: 2550 },
-  { name: 'Jun', Emissions: 2800 },
-  { name: 'Jul', Emissions: 2650 },
-  { name: 'Aug', Emissions: 2900 },
-  { name: 'Sep', Emissions: 2850 },
-  { name: 'Oct', Emissions: 3100 },
-  { name: 'Nov', Emissions: 3050 },
-  { name: 'Dec', Emissions: 3400 },
-];
-
-const departmentData = [
-  { name: 'Sale', score: 78, color: 'var(--color-accent-soc)' },
-  { name: 'Mfg', score: 65, color: 'var(--color-accent-env)' },
-  { name: 'Logi', score: 72, color: 'var(--color-accent-gam)' },
-  { name: 'Corp', score: 92, color: 'var(--color-accent-gov)' },
-  { name: 'R&D', score: 85, color: 'var(--color-accent-rep)' },
-];
-
-const mockChallengesList = [
-  { id: 1, title: "Sustainability Sprint", xp: 200, difficulty: "Hard" },
-  { id: 2, title: "Recycle Challenge", xp: 80, difficulty: "Easy" },
-  { id: 3, title: "Commute Green Week", xp: 120, difficulty: "Medium" }
-];
-
 export default function Dashboard() {
   const { showToast } = useToast();
+  const { user, canEdit, canAccess, createNotification } = useAuth();
   const navigate = useNavigate();
 
-  // State for scores
-  const [environmentalScore, setEnvironmentalScore] = useState(82);
-  const [socialScore, setSocialScore] = useState(74);
-  const [governanceScore, setGovernanceScore] = useState(88);
-  const [overallScore, setOverallScore] = useState(81);
-  const [emissionsData, setEmissionsData] = useState(initialEmissionsData);
+  // Load live score calculations
+  const [scoresData, setScoresData] = useState(() => recalculateAllScores());
+  const [emissionsData, setEmissionsData] = useState(() => getStorageItem('db_transactions', []));
+  const [challengesList, setChallengesList] = useState(() => getStorageItem('db_challenges', []));
+  const [factors, setFactors] = useState(() => getStorageItem('db_factors', []));
 
   // Modals state
   const [isCarbonModalOpen, setIsCarbonModalOpen] = useState(false);
@@ -77,47 +57,164 @@ export default function Dashboard() {
 
   // Carbon form state
   const [carbonDept, setCarbonDept] = useState('Manufacturing');
-  const [carbonAmount, setCarbonAmount] = useState('');
-  const [carbonDate, setCarbonDate] = useState('');
+  const [selectedFactorId, setSelectedFactorId] = useState(1);
+  const [carbonQty, setCarbonQty] = useState('');
+  const [carbonDate, setCarbonDate] = useState(new Date().toISOString().split('T')[0]);
+
+  // Selected factor details
+  const currentFactor = factors.find(f => f.id === parseInt(selectedFactorId)) || factors[0];
+  const calculatedEmissions = currentFactor ? calculateCO2(carbonQty, currentFactor.factorValue) : 0;
+
+  // Sync data when storage updates
+  const syncScores = () => {
+    const fresh = recalculateAllScores();
+    setScoresData(fresh);
+    setEmissionsData(getStorageItem('db_transactions', []));
+    setChallengesList(getStorageItem('db_challenges', []));
+  };
+
+  useEffect(() => {
+    syncScores();
+  }, []);
 
   const handleCarbonSubmit = (e) => {
     e.preventDefault();
-    if (!carbonAmount || !carbonDate) {
+    if (!carbonQty || !carbonDate) {
       showToast("Please fill in all carbon data fields.", "error");
+      return;
+    }
+
+    if (!canEdit('environmental')) {
+      showToast("You do not have permission to log environmental data.", "error");
       return;
     }
 
     showToast("Processing carbon entry...", "info");
     
     setTimeout(() => {
-      setEnvironmentalScore(prev => Math.min(prev + 1, 100));
-      setOverallScore(prev => Math.min(prev + 1, 100));
+      // 1. Log Carbon Transaction
+      const transactions = getStorageItem('db_transactions', []);
+      const newTransaction = {
+        id: Date.now(),
+        date: carbonDate,
+        desc: `Logged emissions via ${currentFactor?.name || 'Factor'}`,
+        type: "Emission",
+        quantity: parseFloat(carbonQty),
+        factorValue: currentFactor?.factorValue || 0,
+        amountCO2: parseFloat((calculatedEmissions / 1000).toFixed(2)), // store as tCO2e
+        cost: "N/A",
+        department: carbonDept
+      };
+      
+      const updatedTx = [newTransaction, ...transactions];
+      setStorageItem('db_transactions', updatedTx);
 
-      setEmissionsData(prev => {
-        const copy = [...prev];
-        const last = copy[copy.length - 1];
-        copy[copy.length - 1] = { ...last, Emissions: last.Emissions + parseFloat(carbonAmount) };
-        return copy;
+      // 2. Recalculate Goals for that department
+      const goals = getStorageItem('db_goals', []);
+      const updatedGoals = goals.map(g => {
+        if (g.department === carbonDept && g.status !== 'Completed') {
+          const freshCurrent = parseFloat((g.currentCO2 + (calculatedEmissions / 1000)).toFixed(2));
+          const progress = calculateGoalProgress(freshCurrent, g.targetCO2);
+          return {
+            ...g,
+            currentCO2: freshCurrent,
+            progress: progress,
+            status: getGoalStatus(progress)
+          };
+        }
+        return g;
       });
+      setStorageItem('db_goals', updatedGoals);
+
+      // Create Notification
+      createNotification(
+        user?.id || 'all', 
+        'info', 
+        `New Carbon transaction logged for ${carbonDept}. Goal progress updated.`
+      );
 
       showToast("Carbon data logged successfully!", "success");
       setIsCarbonModalOpen(false);
-      setCarbonAmount('');
-      setCarbonDate('');
+      setCarbonQty('');
+      
+      // Update local state scores
+      syncScores();
     }, 800);
   };
 
-  const handleJoinChallenge = (title) => {
-    showToast(`Joined challenge: ${title}!`, "success");
+  const handleJoinChallenge = (ch) => {
+    if (user?.role === 'Manager') {
+      showToast("Managers cannot join challenges.", "error");
+      return;
+    }
+
+    showToast(`Joined challenge: ${ch.title}!`, "success");
+    
+    // Update challenge state
+    const challenges = getStorageItem('db_challenges', []);
+    const updated = challenges.map(item => {
+      if (item.id === ch.id) return { ...item, hasJoined: true };
+      return item;
+    });
+    setStorageItem('db_challenges', updated);
+
+    // Save participation
+    const parts = getStorageItem('db_challenge_participations', []);
+    const newPart = {
+      id: Date.now(),
+      name: user?.name || "Demo Employee",
+      department: user?.department || "Manufacturing",
+      challenge: ch.title,
+      xpEarned: ch.xp,
+      dateJoined: new Date().toISOString().split('T')[0],
+      status: "Pending" // requires manager approval
+    };
+    setStorageItem('db_challenge_participations', [newPart, ...parts]);
+
+    createNotification(user?.id, 'info', `Joined challenge: ${ch.title}. Pending approval.`);
     setIsChallengeModalOpen(false);
+    syncScores();
   };
+
+  // Map transactions to linechart data (group by month of last 12 months)
+  const chartEmissions = [
+    { name: 'Jan', Emissions: 2100 },
+    { name: 'Feb', Emissions: 1950 },
+    { name: 'Mar', Emissions: 2300 },
+    { name: 'Apr', Emissions: 2200 },
+    { name: 'May', Emissions: 2550 },
+    { name: 'Jun', Emissions: 2800 },
+    { name: 'Jul', Emissions: 2650 },
+    { name: 'Aug', Emissions: 2900 },
+    { name: 'Sep', Emissions: 2850 },
+    { name: 'Oct', Emissions: 3100 },
+    { name: 'Nov', Emissions: 3050 },
+    { name: 'Dec', Emissions: 3400 },
+  ];
+
+  // Map dynamic department scores to barchart
+  const departmentsList = getStorageItem('db_departments', []);
+  const departmentScores = departmentsList.map(dept => {
+    const deptScore = scoresData.deptScores[dept.name]?.total || 75;
+    let color = 'var(--color-accent-env)';
+    if (dept.name === 'Logistics') color = 'var(--color-accent-gam)';
+    if (dept.name === 'Corporate') color = 'var(--color-accent-gov)';
+    if (dept.name === 'R&D') color = 'var(--color-accent-soc)';
+    return {
+      name: dept.name.slice(0, 4),
+      score: deptScore,
+      color: color
+    };
+  });
 
   return (
     <main className="p-6 space-y-6 max-w-7xl w-full mx-auto">
       {/* PAGE HEADER INTRO */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-border-sage">
         <div>
-          <h2 className="text-2xl font-bold font-display text-text-primary tracking-tight">Executive Overview</h2>
+          <h2 className="text-2xl font-bold font-display text-text-primary tracking-tight">
+            Welcome back, {user?.name || 'Guest'} — <span className="text-brand font-semibold">{user?.role || 'Guest'} view</span>
+          </h2>
           <p className="text-text-secondary text-xs mt-1 font-medium">Real-time performance metrics, compliance logs, and cross-department ESG indicators.</p>
         </div>
         <div className="flex items-center space-x-2 text-[10px] text-text-secondary bg-bg-card border border-border-sage rounded-lg p-2 font-mono">
@@ -132,96 +229,104 @@ export default function Dashboard() {
           
           {/* Card 1: Environmental Score */}
           <div 
-            onClick={() => navigate('/environmental')}
-            className="bg-bg-card bg-gradient-to-br from-bg-card to-accent-env/5 border-l-4 border-l-accent-env border border-border-sage rounded-r-2xl rounded-l-md p-6 hover:scale-[1.01] transition-all duration-300 hover:shadow-premium-green cursor-pointer group"
+            onClick={() => { if (canAccess('environmental')) navigate('/environmental'); }}
+            className={`bg-bg-card bg-gradient-to-br from-bg-card to-accent-env/5 border-l-4 border-l-accent-env border border-border-sage rounded-r-2xl rounded-l-md p-6 hover:scale-[1.01] transition-all duration-300 hover:shadow-premium-green cursor-pointer group ${
+              !canAccess('environmental') ? 'opacity-50 grayscale pointer-events-none' : ''
+            }`}
           >
             <div className="flex items-center justify-between">
-              <span className="text-text-secondary text-[10px] font-bold uppercase tracking-wider font-display">Environmental Score</span>
+              <span className="text-text-secondary text-[10px] font-bold uppercase tracking-wider font-display">{TERMS.score} - Environmental</span>
               <div className="p-1.5 rounded-lg bg-accent-env/10 text-accent-env group-hover:bg-accent-env/20 transition-colors">
                 <Globe className="w-4 h-4" />
               </div>
             </div>
             <div className="mt-4 flex items-baseline justify-between">
-              <span className="text-3xl font-extrabold text-text-primary tracking-tight font-display font-mono">{environmentalScore} <span className="text-sm font-normal text-text-secondary">/ 100</span></span>
+              <span className="text-3xl font-extrabold text-text-primary tracking-tight font-display font-mono">{scoresData.environmentalScore} <span className="text-sm font-normal text-text-secondary">/ 100</span></span>
               <span className="flex items-center text-[10px] font-bold text-accent-env bg-accent-env/10 px-1.5 py-0.5 rounded">
                 <TrendingUp className="w-3 h-3 mr-1" />
                 +4.2%
               </span>
             </div>
             <div className="mt-3 h-1 bg-bg-base rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-accent-env to-emerald-400 rounded-full" style={{ width: `${environmentalScore}%` }}></div>
+              <div className="h-full bg-gradient-to-r from-accent-env to-emerald-400 rounded-full" style={{ width: `${scoresData.environmentalScore}%` }}></div>
             </div>
           </div>
 
           {/* Card 2: Social Score */}
           <div 
-            onClick={() => navigate('/social')}
-            className="bg-bg-card bg-gradient-to-br from-bg-card to-accent-soc/5 border-l-4 border-l-accent-soc border border-border-sage rounded-r-2xl rounded-l-md p-6 hover:scale-[1.01] transition-all duration-300 hover:shadow-premium-blue cursor-pointer group"
+            onClick={() => { if (canAccess('social')) navigate('/social'); }}
+            className={`bg-bg-card bg-gradient-to-br from-bg-card to-accent-soc/5 border-l-4 border-l-accent-soc border border-border-sage rounded-r-2xl rounded-l-md p-6 hover:scale-[1.01] transition-all duration-300 hover:shadow-premium-blue cursor-pointer group ${
+              !canAccess('social') ? 'opacity-50 grayscale pointer-events-none' : ''
+            }`}
           >
             <div className="flex items-center justify-between">
-              <span className="text-text-secondary text-[10px] font-bold uppercase tracking-wider font-display">Social Score</span>
+              <span className="text-text-secondary text-[10px] font-bold uppercase tracking-wider font-display">{TERMS.score} - Social</span>
               <div className="p-1.5 rounded-lg bg-accent-soc/10 text-accent-soc group-hover:bg-accent-soc/20 transition-colors">
                 <Users className="w-4 h-4" />
               </div>
             </div>
             <div className="mt-4 flex items-baseline justify-between">
-              <span className="text-3xl font-extrabold text-text-primary tracking-tight font-display font-mono">{socialScore} <span className="text-sm font-normal text-text-secondary">/ 100</span></span>
+              <span className="text-3xl font-extrabold text-text-primary tracking-tight font-display font-mono">{scoresData.socialScore} <span className="text-sm font-normal text-text-secondary">/ 100</span></span>
               <span className="flex items-center text-[10px] font-bold text-accent-soc bg-accent-soc/10 px-1.5 py-0.5 rounded">
                 <TrendingUp className="w-3 h-3 mr-1" />
                 +2.1%
               </span>
             </div>
             <div className="mt-3 h-1 bg-bg-base rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-accent-soc to-blue-400 rounded-full" style={{ width: `${socialScore}%` }}></div>
+              <div className="h-full bg-gradient-to-r from-accent-soc to-blue-400 rounded-full" style={{ width: `${scoresData.socialScore}%` }}></div>
             </div>
           </div>
 
           {/* Card 3: Governance Score */}
           <div 
-            onClick={() => navigate('/governance')}
-            className="bg-bg-card bg-gradient-to-br from-bg-card to-accent-gov/5 border-l-4 border-l-accent-gov border border-border-sage rounded-r-2xl rounded-l-md p-6 hover:scale-[1.01] transition-all duration-300 hover:shadow-premium-purple cursor-pointer group"
+            onClick={() => { if (canAccess('governance')) navigate('/governance'); }}
+            className={`bg-bg-card bg-gradient-to-br from-bg-card to-accent-gov/5 border-l-4 border-l-accent-gov border border-border-sage rounded-r-2xl rounded-l-md p-6 hover:scale-[1.01] transition-all duration-300 hover:shadow-premium-purple cursor-pointer group ${
+              !canAccess('governance') ? 'opacity-50 grayscale pointer-events-none' : ''
+            }`}
           >
             <div className="flex items-center justify-between">
-              <span className="text-text-secondary text-[10px] font-bold uppercase tracking-wider font-display">Governance Score</span>
+              <span className="text-text-secondary text-[10px] font-bold uppercase tracking-wider font-display">{TERMS.score} - Governance</span>
               <div className="p-1.5 rounded-lg bg-accent-gov/10 text-accent-gov group-hover:bg-accent-gov/20 transition-colors">
                 <Shield className="w-4 h-4" />
               </div>
             </div>
             <div className="mt-4 flex items-baseline justify-between">
-              <span className="text-3xl font-extrabold text-text-primary tracking-tight font-display font-mono">{governanceScore} <span className="text-sm font-normal text-text-secondary">/ 100</span></span>
+              <span className="text-3xl font-extrabold text-text-primary tracking-tight font-display font-mono">{scoresData.governanceScore} <span className="text-sm font-normal text-text-secondary">/ 100</span></span>
               <span className="flex items-center text-[10px] font-bold text-accent-gov bg-accent-gov/10 px-1.5 py-0.5 rounded">
                 <TrendingUp className="w-3 h-3 mr-1" />
                 +1.5%
               </span>
             </div>
             <div className="mt-3 h-1 bg-bg-base rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-accent-gov to-purple-400 rounded-full" style={{ width: `${governanceScore}%` }}></div>
+              <div className="h-full bg-gradient-to-r from-accent-gov to-purple-400 rounded-full" style={{ width: `${scoresData.governanceScore}%` }}></div>
             </div>
           </div>
 
           {/* Card 4: Overall ESG Score */}
           <div 
-            onClick={() => navigate('/reports')}
-            className="relative bg-bg-card border-2 border-brand/40 rounded-2xl p-6 hover:scale-[1.01] transition-all duration-300 shadow-premium-green hover:border-brand cursor-pointer group"
+            onClick={() => { if (canAccess('reports')) navigate('/reports'); }}
+            className={`relative bg-bg-card border-2 border-brand/40 rounded-2xl p-6 hover:scale-[1.01] transition-all duration-300 shadow-premium-green hover:border-brand cursor-pointer group ${
+              !canAccess('reports') ? 'opacity-50 grayscale pointer-events-none' : ''
+            }`}
           >
             <div className="absolute top-0 right-0 -mt-2.5 -mr-1 px-2.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-widest bg-brand text-bg-base shadow-md">
               Primary
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-brand text-[10px] font-extrabold uppercase tracking-wider font-display">Overall ESG Score</span>
+              <span className="text-brand text-[10px] font-extrabold uppercase tracking-wider font-display">Overall {TERMS.score}</span>
               <div className="p-1.5 rounded-lg bg-brand/10 text-brand group-hover:bg-brand/20 transition-colors">
                 <Activity className="w-4 h-4" />
               </div>
             </div>
             <div className="mt-4 flex items-baseline justify-between">
-              <span className="text-3xl font-black text-text-primary tracking-tight font-display font-mono">{overallScore} <span className="text-sm font-normal text-text-secondary">/ 100</span></span>
+              <span className="text-3xl font-black text-text-primary tracking-tight font-display font-mono">{scoresData.overallScore} <span className="text-sm font-normal text-text-secondary">/ 100</span></span>
               <span className="flex items-center text-[10px] font-bold text-brand bg-brand/10 px-1.5 py-0.5 rounded">
                 <TrendingUp className="w-3 h-3 mr-1" />
                 +3.2%
               </span>
             </div>
             <div className="mt-3 h-1 bg-bg-base rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-brand to-accent-rep rounded-full" style={{ width: `${overallScore}%` }}></div>
+              <div className="h-full bg-gradient-to-r from-brand to-accent-rep rounded-full" style={{ width: `${scoresData.overallScore}%` }}></div>
             </div>
           </div>
 
@@ -250,7 +355,7 @@ export default function Dashboard() {
           
           <div className="flex-1 mt-4">
             <ResponsiveContainer width="100%" height={260}>
-              <LineChart data={emissionsData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <LineChart data={chartEmissions} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <XAxis 
                   dataKey="name" 
                   stroke="var(--color-text-secondary)" 
@@ -297,7 +402,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-between pb-4 border-b border-border-sage">
             <div className="flex items-center space-x-2">
               <div className="w-2.5 h-2.5 rounded-full bg-accent-soc"></div>
-              <h3 className="text-xs font-bold text-text-primary tracking-wide uppercase font-display">Department ESG Ranking</h3>
+              <h3 className="text-xs font-bold text-text-primary tracking-wide uppercase font-display">Department {TERMS.score} Ranking</h3>
             </div>
             <span className="text-[10px] text-accent-soc bg-accent-soc/10 px-2 py-0.5 rounded font-mono font-bold">
               Score Out of 100
@@ -306,7 +411,7 @@ export default function Dashboard() {
           
           <div className="flex-1 mt-4">
             <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={departmentData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <BarChart data={departmentScores} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <XAxis 
                   dataKey="name" 
                   stroke="var(--color-text-secondary)" 
@@ -340,7 +445,7 @@ export default function Dashboard() {
                   dataKey="score" 
                   radius={[6, 6, 0, 0]}
                 >
-                  {departmentData.map((entry, index) => (
+                  {departmentScores.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Bar>
@@ -363,7 +468,6 @@ export default function Dashboard() {
             
             <div className="mt-4 divide-y divide-border-sage/40">
               
-              {/* Item 1 */}
               <div className="py-3.5 flex items-start space-x-3.5 hover:bg-bg-base/30 px-2 rounded-lg transition-colors duration-150">
                 <div className="mt-0.5 p-1.5 rounded-lg bg-accent-env/15 text-accent-env">
                   <CheckCircle className="w-4 h-4" />
@@ -375,7 +479,6 @@ export default function Dashboard() {
                 <ChevronRight className="w-4 h-4 text-text-secondary mt-1" />
               </div>
 
-              {/* Item 2 */}
               <div className="py-3.5 flex items-start space-x-3.5 hover:bg-bg-base/30 px-2 rounded-lg transition-colors duration-150">
                 <div className="mt-0.5 p-1.5 rounded-lg bg-red-500/15 text-red-400">
                   <AlertTriangle className="w-4 h-4" />
@@ -387,7 +490,6 @@ export default function Dashboard() {
                 <ChevronRight className="w-4 h-4 text-text-secondary mt-1" />
               </div>
 
-              {/* Item 3 */}
               <div className="py-3.5 flex items-start space-x-3.5 hover:bg-bg-base/30 px-2 rounded-lg transition-colors duration-150">
                 <div className="mt-0.5 p-1.5 rounded-lg bg-brand/15 text-brand">
                   <FileText className="w-4 h-4" />
@@ -399,7 +501,6 @@ export default function Dashboard() {
                 <ChevronRight className="w-4 h-4 text-text-secondary mt-1" />
               </div>
 
-              {/* Item 4 */}
               <div className="py-3.5 flex items-start space-x-3.5 hover:bg-bg-base/30 px-2 rounded-lg transition-colors duration-150">
                 <div className="mt-0.5 p-1.5 rounded-lg bg-accent-gov/15 text-accent-gov">
                   <ClipboardCheck className="w-4 h-4" />
@@ -423,45 +524,58 @@ export default function Dashboard() {
             </h3>
             
             <div className="mt-6 space-y-4">
-              {/* Button 1: Solid Green */}
-              <button 
-                onClick={() => setIsCarbonModalOpen(true)}
-                className="w-full flex items-center justify-between px-5 py-4 bg-gradient-to-r from-brand to-accent-env hover:brightness-110 text-bg-base font-bold rounded-xl transition-all duration-200 shadow-md group active:scale-[0.99] cursor-pointer"
-              >
-                <div className="flex items-center space-x-3">
-                  <Plus className="w-5 h-5 text-bg-base stroke-[3]" />
-                  <span className="text-xs uppercase tracking-wider font-display font-extrabold">Log Carbon Data</span>
-                </div>
-                <ArrowUpRight className="w-5 h-5 text-bg-base/80 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-              </button>
+              {/* Button 1: Log Carbon Data */}
+              <div className="w-full">
+                <button 
+                  onClick={() => { if (canEdit('environmental')) setIsCarbonModalOpen(true); }}
+                  disabled={!canEdit('environmental')}
+                  className={`w-full flex items-center justify-between px-5 py-4 bg-gradient-to-r from-brand to-accent-env text-bg-base font-bold rounded-xl transition-all duration-200 shadow-md group active:scale-[0.99] cursor-pointer ${
+                    !canEdit('environmental') ? 'opacity-40 cursor-not-allowed filter grayscale' : 'hover:brightness-110'
+                  }`}
+                >
+                  <div className="flex items-center space-x-3">
+                    <Plus className="w-5 h-5 text-bg-base stroke-[3]" />
+                    <span className="text-xs uppercase tracking-wider font-display font-extrabold">Log Carbon Data</span>
+                  </div>
+                  {canEdit('environmental') ? (
+                    <ArrowUpRight className="w-5 h-5 text-bg-base/80 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                  ) : (
+                    <Lock className="w-4 h-4 text-bg-base" />
+                  )}
+                </button>
+                {!canEdit('environmental') && (
+                  <p className="text-[10px] text-text-secondary/70 mt-1 pl-1 font-bold tracking-wide">Requires Sustainability Team access</p>
+                )}
+              </div>
 
-              {/* Button 2: Solid Orange */}
-              <button 
-                onClick={() => setIsChallengeModalOpen(true)}
-                className="w-full flex items-center justify-between px-5 py-4 bg-gradient-to-r from-accent-gam to-amber-600 hover:brightness-110 text-bg-base font-bold rounded-xl transition-all duration-200 shadow-md group active:scale-[0.99] cursor-pointer"
-              >
-                <div className="flex items-center space-x-3">
-                  <Zap className="w-5 h-5 text-bg-base fill-current" />
-                  <span className="text-xs uppercase tracking-wider font-display font-extrabold">Start Challenge</span>
-                </div>
-                <ArrowUpRight className="w-5 h-5 text-bg-base/80 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-              </button>
+              {/* Button 2: Start Challenge */}
+              <div className="w-full">
+                <button 
+                  onClick={() => setIsChallengeModalOpen(true)}
+                  className="w-full flex items-center justify-between px-5 py-4 bg-gradient-to-r from-accent-gam to-amber-600 hover:brightness-110 text-bg-base font-bold rounded-xl transition-all duration-200 shadow-md group active:scale-[0.99] cursor-pointer"
+                >
+                  <div className="flex items-center space-x-3">
+                    <Zap className="w-5 h-5 text-bg-base fill-current" />
+                    <span className="text-xs uppercase tracking-wider font-display font-extrabold">Start Challenge</span>
+                  </div>
+                  <ArrowUpRight className="w-5 h-5 text-bg-base/80 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                </button>
+              </div>
 
-              {/* Button 3: Outlined/Gray */}
+              {/* Button 3: Outlined/Gray View Reports */}
               <button 
                 onClick={() => navigate('/reports')}
                 className="w-full flex items-center justify-between px-5 py-4 bg-transparent border border-border-sage hover:border-text-secondary hover:bg-bg-base/40 text-text-primary font-bold rounded-xl transition-all duration-200 group active:scale-[0.99] cursor-pointer"
               >
                 <div className="flex items-center space-x-3">
                   <FileText className="w-5 h-5 text-text-secondary" />
-                  <span className="text-xs uppercase tracking-wider font-display font-extrabold">View Reports</span>
+                  <span className="text-xs uppercase tracking-wider font-display font-extrabold font-semibold">View Reports</span>
                 </div>
                 <ArrowUpRight className="w-5 h-5 text-text-secondary group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
               </button>
             </div>
           </div>
           
-          {/* Decorative extra widget inside Quick Actions for polished look */}
           <div className="mt-8 p-4 rounded-xl bg-gradient-to-r from-brand/10 to-accent-env/5 border border-brand/20 flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <div className="w-2.5 h-2.5 rounded-full bg-brand animate-ping"></div>
@@ -503,11 +617,23 @@ export default function Dashboard() {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">CO₂ Amount (tCO2e)</label>
+            <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Emission Factor</label>
+            <select
+              value={selectedFactorId}
+              onChange={(e) => setSelectedFactorId(e.target.value)}
+              className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary focus:outline-none focus:border-brand"
+            >
+              {factors.map(f => (
+                <option key={f.id} value={f.id}>{f.name} ({f.factorValue} {f.unit})</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Quantity (Units/kWh/L)</label>
             <input
               type="number"
-              value={carbonAmount}
-              onChange={(e) => setCarbonAmount(e.target.value)}
+              value={carbonQty}
+              onChange={(e) => setCarbonQty(e.target.value)}
               placeholder="e.g. 150"
               className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary placeholder-text-secondary/40 focus:outline-none focus:border-brand"
             />
@@ -521,6 +647,16 @@ export default function Dashboard() {
               className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary focus:outline-none focus:border-brand"
             />
           </div>
+          
+          {/* Live Preview Calculation */}
+          {carbonQty && currentFactor && (
+            <div className="p-3 bg-brand/5 border border-brand/20 rounded-lg text-[11px] font-semibold text-brand">
+              🧮 Live Calculation Preview: <br/>
+              <span className="font-bold font-mono">
+                {carbonQty} units × {currentFactor.factorValue} {currentFactor.unit} = {calculatedEmissions.toLocaleString()} kg CO₂ ({parseFloat((calculatedEmissions / 1000).toFixed(2))} tCO2e)
+              </span>
+            </div>
+          )}
         </div>
       </Modal>
 
@@ -534,20 +670,23 @@ export default function Dashboard() {
       >
         <div className="space-y-4 divide-y divide-border-sage/40">
           <p className="text-[11px] text-text-secondary">Select an active challenge from the platform to join.</p>
-          {mockChallengesList.map((ch) => (
+          {challengesList.filter(ch => !ch.hasJoined).map((ch) => (
             <div key={ch.id} className="pt-4 flex items-center justify-between">
               <div>
                 <h4 className="text-xs font-bold text-text-primary font-display">{ch.title}</h4>
                 <p className="text-[10px] text-text-secondary mt-0.5">XP Reward: {ch.xp} • Difficulty: {ch.difficulty}</p>
               </div>
               <button
-                onClick={() => handleJoinChallenge(ch.title)}
+                onClick={() => handleJoinChallenge(ch)}
                 className="px-3 py-1.5 bg-accent-gam hover:bg-amber-600 text-bg-base text-[10px] font-bold rounded-lg transition-colors cursor-pointer"
               >
                 Join
               </button>
             </div>
           ))}
+          {challengesList.filter(ch => !ch.hasJoined).length === 0 && (
+            <p className="text-xs text-text-secondary pt-4 text-center">No new challenges available to join.</p>
+          )}
         </div>
       </Modal>
     </main>

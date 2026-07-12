@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
+import { getStorageItem, setStorageItem, recalculateAllScores } from '../../utils/storage';
 import Modal from '../../components/Modal';
 import { 
   Plus, 
@@ -21,56 +22,63 @@ export default function Settings() {
   // Selection states
   const [selectedDeptName, setSelectedDeptName] = useState(null);
 
+  // Sync state with localStorage
+  const [toggles, setToggles] = useState(() => getStorageItem('db_esg_config', {
+    autoEmission: false,
+    requireEvidence: false,
+    autoAwardBadges: false,
+    emailAlerts: false
+  }));
+
+  const [departments, setDepartments] = useState(() => getStorageItem('db_departments', []));
+  const [categories, setCategories] = useState(() => getStorageItem('db_categories', []));
+
   useEffect(() => {
     if (location.state?.activeSubTab) {
       setActiveSubTab(location.state.activeSubTab);
     }
   }, [location.state]);
 
-  // --- STATE SEED DATA ---
-  const [toggles, setToggles] = useState({
-    autoEmission: false,
-    requireEvidence: false,
-    autoAwardBadges: false,
-    emailAlerts: false
-  });
+  const refreshData = () => {
+    setToggles(getStorageItem('db_esg_config', {
+      autoEmission: false,
+      requireEvidence: false,
+      autoAwardBadges: false,
+      emailAlerts: false
+    }));
+    setDepartments(getStorageItem('db_departments', []));
+    setCategories(getStorageItem('db_categories', []));
+    recalculateAllScores();
+  };
 
   const toggleHandler = (key) => {
     if (!isAdmin) {
       showToast("Admin access required to modify global ESG settings.", "error");
       return;
     }
-    const newVal = !toggles[key];
-    setToggles(prev => ({
-      ...prev,
-      [key]: newVal
-    }));
-    showToast(`Configuration changed: ${key} is now ${newVal ? 'ENABLED' : 'DISABLED'}`, "success");
+    const config = getStorageItem('db_esg_config', {
+      autoEmission: false,
+      requireEvidence: false,
+      autoAwardBadges: false,
+      emailAlerts: false
+    });
+    config[key] = !config[key];
+    setStorageItem('db_esg_config', config);
+    showToast(`Configuration changed: ${key} is now ${config[key] ? 'ENABLED' : 'DISABLED'}`, "success");
+    refreshData();
   };
 
-  const [departments, setDepartments] = useState([
-    { name: "Manufacturing", code: "MFG", head: "S. Nair", parent: "—", employees: "134", status: "Active" },
-    { name: "Logistics", code: "LOG", head: "R. Iyer", parent: "Manufacturing", employees: "58", status: "Active" },
-    { name: "Corporate", code: "COR", head: "A. Mehta", parent: "—", employees: "41", status: "Active" }
-  ]);
-
-  const [categories, setCategories] = useState([
-    { id: 1, name: "Carbon footprint metrics", classification: "Environmental", weight: "40%" },
-    { id: 2, name: "Social impact programs", classification: "Social", weight: "30%" },
-    { id: 3, name: "Internal corporate policies", classification: "Governance", weight: "30%" }
-  ]);
-
-  // --- MODALS STATE ---
+  // Modals state
   const [isDeptModalOpen, setIsDeptModalOpen] = useState(false);
   const [deptModalMode, setDeptModalMode] = useState('create'); // 'create' | 'edit'
-  const [deptFormData, setDeptFormData] = useState({ name: '', code: '', head: '', parent: '—', employees: '' });
+  const [deptFormData, setDeptFormData] = useState({ name: '', code: '', head: '', parent: '—', employees: '50' });
 
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [categoryFormData, setCategoryFormData] = useState({ name: '', classification: 'Environmental', weight: '30%' });
 
-  // --- HANDLERS ---
+  // Handlers
   const openDeptModal = (mode, deptObj = null) => {
     if (!isAdmin) {
       showToast("Admin permissions required to register departments.", "error");
@@ -80,7 +88,7 @@ export default function Settings() {
     if (deptObj) {
       setDeptFormData({ ...deptObj });
     } else {
-      setDeptFormData({ name: '', code: '', head: '', parent: '—', employees: '' });
+      setDeptFormData({ name: '', code: '', head: '', parent: '—', employees: '50' });
     }
     setIsDeptModalOpen(true);
   };
@@ -92,24 +100,32 @@ export default function Settings() {
       return;
     }
 
+    const list = getStorageItem('db_departments', []);
+
     if (deptModalMode === 'create') {
       const newDept = {
-        ...deptFormData,
+        name: deptFormData.name,
+        code: deptFormData.code,
+        head: deptFormData.head,
+        parent: deptFormData.parent,
+        employees: deptFormData.employees,
         status: "Active"
       };
-      setDepartments([...departments, newDept]);
+      setStorageItem('db_departments', [...list, newDept]);
       showToast(`Department ${deptFormData.name} registered!`, "success");
     } else {
-      setDepartments(departments.map(item => {
+      const updated = list.map(item => {
         if (item.name === selectedDeptName) {
           return { ...item, ...deptFormData };
         }
         return item;
-      }));
+      });
+      setStorageItem('db_departments', updated);
       showToast(`Department ${deptFormData.name} updated!`, "success");
     }
     setIsDeptModalOpen(false);
     setSelectedDeptName(null);
+    refreshData();
   };
 
   const triggerDeleteConfirm = () => {
@@ -121,10 +137,13 @@ export default function Settings() {
   };
 
   const handleConfirmDelete = () => {
-    setDepartments(departments.filter(x => x.name !== selectedDeptName));
+    const list = getStorageItem('db_departments', []);
+    const filtered = list.filter(x => x.name !== selectedDeptName);
+    setStorageItem('db_departments', filtered);
     showToast(`Department ${selectedDeptName} deleted.`, "success");
     setIsDeleteConfirmOpen(false);
     setSelectedDeptName(null);
+    refreshData();
   };
 
   const handleCreateCategory = (e) => {
@@ -133,14 +152,24 @@ export default function Settings() {
       showToast("Please fill in category name and score weight.", "error");
       return;
     }
+
+    if (!isAdmin) {
+      showToast("Admin permissions required to create categories.", "error");
+      return;
+    }
+
+    const list = getStorageItem('db_categories', []);
     const newCat = {
       id: Date.now(),
-      ...categoryFormData
+      name: categoryFormData.name,
+      classification: categoryFormData.classification,
+      weight: categoryFormData.weight
     };
-    setCategories([...categories, newCat]);
+    setStorageItem('db_categories', [...list, newCat]);
     showToast("ESG Category created successfully!", "success");
     setIsCategoryModalOpen(false);
     setCategoryFormData({ name: '', classification: 'Environmental', weight: '30%' });
+    refreshData();
   };
 
   const subTabs = ['Departments', 'Categories', 'ESG Configuration', 'Notification Settings'];
@@ -190,7 +219,7 @@ export default function Settings() {
                   onClick={() => openDeptModal('create')}
                   className={`flex items-center space-x-1.5 px-3.5 py-2 bg-text-primary text-bg-base font-extrabold text-xs rounded-lg transition-all shadow-md shadow-text-primary/5 ${
                     isAdmin 
-                      ? 'hover:brightness-90 active:scale-[0.98] cursor-pointer' 
+                      ? 'hover:brightness-95 active:scale-[0.98] cursor-pointer' 
                       : 'opacity-40 cursor-not-allowed'
                   }`}
                 >
@@ -267,8 +296,8 @@ export default function Settings() {
                               <input
                                 type="checkbox"
                                 checked={isSelected}
-                                onChange={() => {}} // toggled on row click
-                                className="rounded border-border-sage bg-bg-base text-text-primary focus:ring-0 focus:ring-offset-0"
+                                onChange={() => {}}
+                                className="rounded border-border-sage bg-bg-base text-text-primary focus:ring-0 focus:ring-offset-0 cursor-pointer"
                               />
                             ) : (
                               <span className="text-text-secondary font-mono text-[9px]">-</span>
@@ -452,9 +481,10 @@ export default function Settings() {
             <input
               type="text"
               value={deptFormData.name}
+              disabled={deptModalMode === 'edit'}
               onChange={(e) => setDeptFormData({ ...deptFormData, name: e.target.value })}
               placeholder="e.g. Research & Development"
-              className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary placeholder-text-secondary/40 focus:outline-none focus:border-text-primary"
+              className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary placeholder-text-secondary/40 focus:outline-none focus:border-text-primary disabled:opacity-50"
             />
           </div>
           <div className="grid grid-cols-2 gap-4">

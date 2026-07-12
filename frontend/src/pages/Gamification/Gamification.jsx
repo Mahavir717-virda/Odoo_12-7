@@ -1,6 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
+import { TERMS } from '../../constants/terminology';
+import { 
+  getStorageItem, 
+  setStorageItem, 
+  recalculateAllScores, 
+  triggerPointsAndBadgeUnlocks 
+} from '../../utils/storage';
 import Modal from '../../components/Modal';
 import { 
   Plus, 
@@ -11,20 +19,39 @@ import {
   Star, 
   Crown, 
   Users,
-  Gift
+  Gift,
+  Check,
+  X,
+  Lock
 } from 'lucide-react';
 
 export default function Gamification() {
   const location = useLocation();
   const { showToast } = useToast();
+  const { user, canEdit, canApprove, createNotification } = useAuth();
+
   const [activeSubTab, setActiveSubTab] = useState('Challenges');
   const [filterType, setFilterType] = useState('all'); // 'all' | 'draft' | 'active' | 'review' | 'completed'
+
+  // Load from localStorage
+  const [challenges, setChallenges] = useState(() => getStorageItem('db_challenges', []));
+  const [participationList, setParticipationList] = useState(() => getStorageItem('db_challenge_participations', []));
+  const [badges, setBadges] = useState(() => getStorageItem('db_badges', []));
+  const [rewards, setRewards] = useState(() => getStorageItem('db_rewards', []));
 
   useEffect(() => {
     if (location.state?.activeSubTab) {
       setActiveSubTab(location.state.activeSubTab);
     }
   }, [location.state]);
+
+  const refreshData = () => {
+    setChallenges(getStorageItem('db_challenges', []));
+    setParticipationList(getStorageItem('db_challenge_participations', []));
+    setBadges(getStorageItem('db_badges', []));
+    setRewards(getStorageItem('db_rewards', []));
+    recalculateAllScores();
+  };
 
   const lifecycleFilters = [
     { name: 'All', type: 'all' },
@@ -34,81 +61,17 @@ export default function Gamification() {
     { name: 'Completed', type: 'completed' }
   ];
 
-  // --- STATE SEED DATA ---
-  const [challenges, setChallenges] = useState([
-    {
-      id: 1,
-      title: "Sustainability Sprint",
-      xp: 200,
-      difficulty: "Hard",
-      deadline: "2026-07-20",
-      status: "Active",
-      enabled: true,
-      hasJoined: false
-    },
-    {
-      id: 2,
-      title: "Recycle Challenge",
-      xp: 80,
-      difficulty: "Easy",
-      deadline: "2026-07-15",
-      status: "Active",
-      enabled: true,
-      hasJoined: false
-    },
-    {
-      id: 3,
-      title: "Commute Green Week",
-      xp: 120,
-      difficulty: "Medium",
-      deadline: "2026-07-25",
-      status: "Draft",
-      enabled: false,
-      hasJoined: false
-    }
-  ]);
-
-  const [participationList, setParticipationList] = useState([
-    { id: 1, name: "Aditi Rao", challenge: "Recycle Challenge", xpEarned: 80, dateJoined: "2026-07-08", status: "Joined" },
-    { id: 2, name: "Karan Shah", challenge: "Sustainability Sprint", xpEarned: 200, dateJoined: "2026-07-05", status: "Completed" }
-  ]);
-
-  const [badges, setBadges] = useState([
-    { id: 1, name: "Green Beginner", desc: "First ESG activity complete", iconType: "star" },
-    { id: 2, name: "Carbon Saver", desc: "Reduced 100kg CO₂", iconType: "medal" },
-    { id: 3, name: "Sustainability Champion", desc: "Completed 5 challenges", iconType: "trophy" },
-    { id: 4, name: "Team Player", desc: "Joined team cleanup", iconType: "users" }
-  ]);
-
-  const [rewards, setRewards] = useState([
-    { id: 1, name: "Eco Thermal Flask", costXp: 300, stock: 12, category: "Merchandise" },
-    { id: 2, name: "Solar Phone Charger", costXp: 750, stock: 4, category: "Hardware" },
-    { id: 3, name: "Tree Planted in Your Name", costXp: 150, stock: 999, category: "Social Good" }
-  ]);
-
-  const [leaderboard, setLeaderboard] = useState([
-    { rank: 1, name: "Manufacturing Dept", xp: 4820, isFirst: true },
-    { rank: 2, name: "Aditi Rao", xp: 3910, isFirst: false },
-    { rank: 3, name: "Corporate Dept", xp: 3505, isFirst: false }
-  ]);
-
-  // --- MODALS STATE ---
+  // Modals state
   const [isChallengeModalOpen, setIsChallengeModalOpen] = useState(false);
-  const [challengeFormData, setChallengeFormData] = useState({ title: '', xp: '', difficulty: 'Medium', deadline: '', status: 'Active' });
-
-  const [isParticipationModalOpen, setIsParticipationModalOpen] = useState(false);
-  const [participationFormData, setParticipationFormData] = useState({ name: '', challenge: 'Recycle Challenge' });
+  const [challengeFormData, setChallengeFormData] = useState({ title: '', xp: '100', difficulty: 'Medium', deadline: '', status: 'Active' });
 
   const [isBadgeModalOpen, setIsBadgeModalOpen] = useState(false);
   const [badgeFormData, setBadgeFormData] = useState({ name: '', desc: '', iconType: 'star' });
 
   const [isRewardModalOpen, setIsRewardModalOpen] = useState(false);
-  const [rewardFormData, setRewardFormData] = useState({ name: '', costXp: '', stock: '', category: 'Merchandise' });
+  const [rewardFormData, setRewardFormData] = useState({ name: '', costXp: '150', stock: '20', category: 'Merchandise' });
 
-  const [isCompetitorModalOpen, setIsCompetitorModalOpen] = useState(false);
-  const [competitorFormData, setCompetitorFormData] = useState({ name: '', xp: '' });
-
-  // --- RENDERING HELPERS ---
+  // Rendering Helper
   const renderBadgeIcon = (iconType) => {
     switch (iconType) {
       case 'medal': return <Medal className="w-6 h-6 text-accent-gam" />;
@@ -118,25 +81,38 @@ export default function Gamification() {
     }
   };
 
-  // --- ACTIONS HANDLERS ---
-  const handleJoinChallenge = (id, title) => {
-    setChallenges(challenges.map(ch => {
+  // Actions Handlers
+  const handleJoinChallenge = (id, title, xpReward) => {
+    if (user?.role === 'Manager') {
+      showToast("Managers cannot join employee challenges.", "error");
+      return;
+    }
+
+    const list = getStorageItem('db_challenges', []);
+    const updated = list.map(ch => {
       if (ch.id === id) {
         return { ...ch, hasJoined: true };
       }
       return ch;
-    }));
-    // Also append record in participation
+    });
+    setStorageItem('db_challenges', updated);
+
+    // Add record to participation list
+    const parts = getStorageItem('db_challenge_participations', []);
     const newPart = {
       id: Date.now(),
-      name: "Logged Employee",
+      name: user?.name || "Demo Employee",
+      department: user?.department || "Manufacturing",
       challenge: title,
-      xpEarned: 0,
+      xpEarned: xpReward,
       dateJoined: new Date().toISOString().split('T')[0],
-      status: "Joined"
+      status: "Joined" // Pending completion/approval
     };
-    setParticipationList([newPart, ...participationList]);
+    setStorageItem('db_challenge_participations', [newPart, ...parts]);
+
+    createNotification(user?.id, 'info', `Registered for challenge: ${title}. Let's do this!`);
     showToast(`Successfully registered for challenge: ${title}!`, "success");
+    refreshData();
   };
 
   const handleCreateChallenge = (e) => {
@@ -145,6 +121,13 @@ export default function Gamification() {
       showToast("Please fill in title, XP reward, and deadline.", "error");
       return;
     }
+
+    if (!canEdit('gamification')) {
+      showToast("You do not have permission to formulate challenges.", "error");
+      return;
+    }
+
+    const list = getStorageItem('db_challenges', []);
     const newCh = {
       id: Date.now(),
       title: challengeFormData.title,
@@ -155,40 +138,41 @@ export default function Gamification() {
       enabled: challengeFormData.status === 'Active',
       hasJoined: false
     };
-    setChallenges([...challenges, newCh]);
+    setStorageItem('db_challenges', [...list, newCh]);
+    createNotification('all', 'info', `New ESG Challenge Launched: ${newCh.title}`);
     showToast("ESG Challenge created!", "success");
     setIsChallengeModalOpen(false);
-    setChallengeFormData({ title: '', xp: '', difficulty: 'Medium', deadline: '', status: 'Active' });
+    setChallengeFormData({ title: '', xp: '100', difficulty: 'Medium', deadline: '', status: 'Active' });
+    refreshData();
   };
 
   const handleRedeemReward = (id, name, cost) => {
-    setRewards(rewards.map(item => {
+    const userList = getStorageItem('db_users', []);
+    const currentUser = userList.find(u => u.id === user?.id);
+
+    if (currentUser && currentUser.xp < cost) {
+      showToast(`Insufficient XP balance to redeem ${name}.`, "error");
+      return;
+    }
+
+    // Deduct user XP
+    if (currentUser) {
+      currentUser.xp -= cost;
+      setStorageItem('db_users', userList);
+    }
+
+    const rewardList = getStorageItem('db_rewards', []);
+    const updatedRewards = rewardList.map(item => {
       if (item.id === id && item.stock > 0) {
         return { ...item, stock: item.stock - 1 };
       }
       return item;
-    }));
-    showToast(`Successfully redeemed: ${name} (Spent ${cost} XP)!`, "success");
-  };
+    });
+    setStorageItem('db_rewards', updatedRewards);
 
-  const handleCreateParticipation = (e) => {
-    e.preventDefault();
-    if (!participationFormData.name) {
-      showToast("Please enter employee name.", "error");
-      return;
-    }
-    const newPart = {
-      id: Date.now(),
-      name: participationFormData.name,
-      challenge: participationFormData.challenge,
-      xpEarned: 100,
-      dateJoined: new Date().toISOString().split('T')[0],
-      status: "Joined"
-    };
-    setParticipationList([newPart, ...participationList]);
-    showToast("Challenge participation logged!", "success");
-    setIsParticipationModalOpen(false);
-    setParticipationFormData({ name: '', challenge: 'Recycle Challenge' });
+    createNotification(user?.id, 'success', `Redeemed reward: ${name} (spent ${cost} XP)`);
+    showToast(`Successfully redeemed: ${name}!`, "success");
+    refreshData();
   };
 
   const handleCreateBadge = (e) => {
@@ -197,14 +181,25 @@ export default function Gamification() {
       showToast("Please fill in badge name and description.", "error");
       return;
     }
+
+    if (!canEdit('gamification')) {
+      showToast("You do not have permission to define badges.", "error");
+      return;
+    }
+
+    const list = getStorageItem('db_badges', []);
     const newB = {
       id: Date.now(),
-      ...badgeFormData
+      name: badgeFormData.name,
+      desc: badgeFormData.desc,
+      iconType: badgeFormData.iconType
     };
-    setBadges([...badges, newB]);
+    setStorageItem('db_badges', [...list, newB]);
+    createNotification('all', 'success', `New Badge template defined: ${newB.name}`);
     showToast("Badge template created!", "success");
     setIsBadgeModalOpen(false);
     setBadgeFormData({ name: '', desc: '', iconType: 'star' });
+    refreshData();
   };
 
   const handleCreateReward = (e) => {
@@ -213,6 +208,13 @@ export default function Gamification() {
       showToast("Please fill in reward name, cost, and stock.", "error");
       return;
     }
+
+    if (!canEdit('gamification')) {
+      showToast("You do not have permission to post rewards.", "error");
+      return;
+    }
+
+    const list = getStorageItem('db_rewards', []);
     const newR = {
       id: Date.now(),
       name: rewardFormData.name,
@@ -220,39 +222,70 @@ export default function Gamification() {
       stock: parseInt(rewardFormData.stock, 10),
       category: rewardFormData.category
     };
-    setRewards([...rewards, newR]);
+    setStorageItem('db_rewards', [...list, newR]);
+    createNotification('all', 'info', `New reward item listed: ${newR.name}`);
     showToast("Reward product created!", "success");
     setIsRewardModalOpen(false);
-    setRewardFormData({ name: '', costXp: '', stock: '', category: 'Merchandise' });
+    setRewardFormData({ name: '', costXp: '150', stock: '20', category: 'Merchandise' });
+    refreshData();
   };
 
-  const handleCreateCompetitor = (e) => {
-    e.preventDefault();
-    if (!competitorFormData.name || !competitorFormData.xp) {
-      showToast("Please fill in competitor name and XP.", "error");
+  // Complete/Approve challenge participation
+  const handleCompleteParticipation = (partId) => {
+    if (!canApprove('gamification')) {
+      showToast("You do not have permission to approve/complete challenge participations.", "error");
       return;
     }
-    const newComp = {
-      rank: leaderboard.length + 1,
-      name: competitorFormData.name,
-      xp: parseInt(competitorFormData.xp, 10),
-      isFirst: false
-    };
-    const sorted = [...leaderboard, newComp].sort((a, b) => b.xp - a.xp).map((item, idx) => ({
-      ...item,
-      rank: idx + 1,
-      isFirst: idx === 0
-    }));
-    setLeaderboard(sorted);
-    showToast("Leaderboard updated!", "success");
-    setIsCompetitorModalOpen(false);
-    setCompetitorFormData({ name: '', xp: '' });
+
+    const parts = getStorageItem('db_challenge_participations', []);
+    const updated = parts.map(item => {
+      if (item.id === partId && item.status === 'Joined') {
+        // Trigger points and badge unlocks side-effect
+        triggerPointsAndBadgeUnlocks(item.name, 0, item.xpEarned, showToast, createNotification);
+        return { ...item, status: 'Completed' };
+      }
+      return item;
+    });
+
+    setStorageItem('db_challenge_participations', updated);
+    showToast("Challenge participation approved/completed successfully!", "success");
+    refreshData();
   };
 
-  // Filter logic
+  // Scoped Challenge Participations Filter
+  const managerDept = user?.role === 'Manager' ? user.department : null;
+  const filteredParticipationList = participationList.filter(item => {
+    if (managerDept) {
+      return item.department === managerDept;
+    }
+    return true;
+  });
+
+  // Calculate Leaderboard dynamically
+  const users = getStorageItem('db_users', []);
+  const departments = getStorageItem('db_departments', []);
+  const deptScores = getStorageItem('db_department_scores', {});
+
+  const dynamicLeaderboard = [
+    ...users.map(u => ({ name: u.name, xp: u.xp || 0, type: 'User' })),
+    ...departments.map(d => {
+      const scoreObj = deptScores[d.name] || { score: 75 };
+      // Map department ESG score to a relative XP for high-fidelity comparison
+      const deptXp = Math.round(scoreObj.score * 55);
+      return { name: `${d.name} Dept`, xp: deptXp, type: 'Dept' };
+    })
+  ]
+    .sort((a, b) => b.xp - a.xp)
+    .map((item, idx) => ({
+      rank: idx + 1,
+      name: item.name,
+      xp: item.xp,
+      isFirst: idx === 0
+    }));
+
   const filteredChallenges = challenges.filter(ch => {
     if (filterType === 'all') return true;
-    return ch.status.toLowerCase() === filterType;
+    return ch.status.toLowerCase() === filterType.toLowerCase();
   });
 
   const subTabs = ['Challenges', 'Challenge Participation', 'Badges', 'Rewards', 'Leaderboard'];
@@ -295,14 +328,21 @@ export default function Gamification() {
                 <h2 className="text-xl font-bold font-display text-text-primary tracking-tight">Gamified ESG Challenges</h2>
                 <p className="text-xs text-text-secondary mt-1 font-medium">Motivate teams and employees to reach environmental and social milestones.</p>
               </div>
+              
               <div>
                 <button 
-                  onClick={() => setIsChallengeModalOpen(true)}
-                  className="flex items-center space-x-1.5 px-3.5 py-2 bg-gradient-to-r from-accent-gam to-amber-600 hover:brightness-110 text-bg-base font-extrabold text-xs rounded-lg transition-all active:scale-[0.98] cursor-pointer shadow-md shadow-accent-gam/5"
+                  onClick={() => { if (canEdit('gamification')) setIsChallengeModalOpen(true); }}
+                  disabled={!canEdit('gamification')}
+                  className={`flex items-center space-x-1.5 px-3.5 py-2 bg-gradient-to-r from-accent-gam to-amber-600 text-bg-base font-extrabold text-xs rounded-lg transition-all active:scale-[0.98] cursor-pointer shadow-md shadow-accent-gam/5 ${
+                    !canEdit('gamification') ? 'opacity-40 cursor-not-allowed filter grayscale' : 'hover:brightness-110'
+                  }`}
                 >
                   <Plus className="w-3.5 h-3.5 stroke-[3]" />
                   <span className="uppercase tracking-wider">New Challenge</span>
                 </button>
+                {!canEdit('gamification') && (
+                  <p className="text-[10px] text-text-secondary/70 mt-1 font-bold">Requires HR / Admin access</p>
+                )}
               </div>
             </div>
 
@@ -311,7 +351,7 @@ export default function Gamification() {
                 <button
                   key={filter.name}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold tracking-wide transition-all duration-200 cursor-pointer ${
-                    filterType === filter.type 
+                    filterType.toLowerCase() === filter.type.toLowerCase() 
                       ? 'bg-accent-gam text-bg-base border border-transparent' 
                       : 'bg-bg-card border border-border-sage text-text-secondary hover:text-text-primary hover:border-text-secondary'
                   }`}
@@ -338,7 +378,7 @@ export default function Gamification() {
                 return (
                   <div 
                     key={challenge.id}
-                    className="bg-bg-card border-2 border-accent-gam/30 rounded-2xl p-5 hover:scale-[1.01] hover:shadow-premium-orange transition-all duration-300 flex flex-col justify-between min-h-[220px]"
+                    className="bg-bg-card border-2 border-accent-gam/35 rounded-2xl p-5 hover:scale-[1.01] hover:shadow-premium-orange transition-all duration-300 flex flex-col justify-between min-h-[220px]"
                   >
                     <div className="space-y-3.5">
                       <div className="flex items-center space-x-3.5">
@@ -350,9 +390,9 @@ export default function Gamification() {
 
                       <div className="space-y-1">
                         <p className="text-xs text-text-secondary font-semibold">
-                          XP: <span className="text-accent-gam font-bold">{challenge.xp}</span> • {challenge.difficulty}
+                          XP reward: <span className="text-accent-gam font-bold font-mono">{challenge.xp}</span> • difficulty: {challenge.difficulty}
                         </p>
-                        <p className="text-[11px] text-text-secondary/70 font-semibold flex items-center space-x-1">
+                        <p className="text-[11px] text-text-secondary/70 font-semibold flex items-center space-x-1 font-mono">
                           <Calendar className="w-3.5 h-3.5 mr-1" />
                           <span>Expires: {challenge.deadline}</span>
                         </p>
@@ -367,7 +407,7 @@ export default function Gamification() {
                       {challenge.status === 'Active' && (
                         <button
                           disabled={challenge.hasJoined}
-                          onClick={() => handleJoinChallenge(challenge.id, challenge.title)}
+                          onClick={() => handleJoinChallenge(challenge.id, challenge.title, challenge.xp)}
                           className={`px-3 py-1.5 text-[10px] font-bold rounded-lg transition-colors cursor-pointer ${
                             challenge.hasJoined 
                               ? 'bg-bg-base text-text-secondary cursor-not-allowed border border-border-sage/40' 
@@ -392,14 +432,8 @@ export default function Gamification() {
               <div>
                 <h2 className="text-xl font-bold font-display text-text-primary tracking-tight">Active Participation</h2>
                 <p className="text-xs text-text-secondary mt-1 font-medium">Verify employee registrations and challenge submissions across departments.</p>
+                {managerDept && <p className="text-xs text-brand font-bold mt-1">Scoped to your department: {managerDept}</p>}
               </div>
-              <button 
-                onClick={() => setIsParticipationModalOpen(true)}
-                className="flex items-center space-x-1.5 px-3.5 py-2 bg-gradient-to-r from-accent-gam to-amber-600 hover:brightness-110 text-bg-base font-extrabold text-xs rounded-lg transition-colors cursor-pointer shadow-md shadow-accent-gam/5"
-              >
-                <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                <span className="uppercase tracking-wider">Log Participation</span>
-              </button>
             </div>
 
             <div className="bg-bg-card border border-border-sage rounded-2xl overflow-hidden shadow-lg shadow-brand/5">
@@ -407,16 +441,19 @@ export default function Gamification() {
                 <thead>
                   <tr className="bg-bg-card/85 border-b border-border-sage text-[10px] font-bold text-text-secondary uppercase tracking-wider font-display">
                     <th className="py-4 px-6">Participant</th>
+                    <th className="py-4 px-6">Department</th>
                     <th className="py-4 px-6">Target Challenge</th>
-                    <th className="py-4 px-6">Registration Date</th>
+                    <th className="py-4 px-6 font-mono">Registration Date</th>
                     <th className="py-4 px-6 text-right">Potential XP</th>
                     <th className="py-4 px-6">Status</th>
+                    {canApprove('gamification') && <th className="py-4 px-6 text-center">Action</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border-sage/40 text-text-primary">
-                  {participationList.map(row => (
+                  {filteredParticipationList.map(row => (
                     <tr key={row.id} className="hover:bg-bg-base/20 transition-colors">
                       <td className="py-4 px-6 font-bold text-text-primary font-display">{row.name}</td>
+                      <td className="py-4 px-6 text-text-secondary font-semibold">{row.department}</td>
                       <td className="py-4 px-6 text-text-secondary font-semibold">{row.challenge}</td>
                       <td className="py-4 px-6 font-mono text-text-secondary">{row.dateJoined}</td>
                       <td className="py-4 px-6 text-right font-mono font-bold text-accent-gam">{row.xpEarned}</td>
@@ -429,11 +466,28 @@ export default function Gamification() {
                           {row.status}
                         </span>
                       </td>
+                      {canApprove('gamification') && (
+                        <td className="py-4 px-6 text-center">
+                          {row.status === 'Joined' ? (
+                            <button
+                              onClick={() => handleCompleteParticipation(row.id)}
+                              className="px-2 py-1 text-[10px] bg-accent-env text-bg-base rounded font-bold hover:brightness-110 transition-all"
+                            >
+                              Approve / Complete
+                            </button>
+                          ) : (
+                            <span className="text-[10px] text-text-secondary/70">Completed ✓</span>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+            {!canApprove('gamification') && (
+              <p className="text-[10px] text-text-secondary/70 font-semibold text-right">Approvals require Manager or HR access</p>
+            )}
           </section>
         )}
 
@@ -445,13 +499,22 @@ export default function Gamification() {
                 <h2 className="text-xl font-bold font-display text-text-primary tracking-tight">Available Badges</h2>
                 <p className="text-xs text-text-secondary mt-1 font-medium">Configure corporate milestone badges issued upon completing challenges.</p>
               </div>
-              <button 
-                onClick={() => setIsBadgeModalOpen(true)}
-                className="flex items-center space-x-1.5 px-3.5 py-2 bg-gradient-to-r from-accent-gam to-amber-600 hover:brightness-110 text-bg-base font-extrabold text-xs rounded-lg transition-colors cursor-pointer shadow-md shadow-accent-gam/5"
-              >
-                <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                <span className="uppercase tracking-wider">New Badge</span>
-              </button>
+              
+              <div>
+                <button 
+                  onClick={() => { if (canEdit('gamification')) setIsBadgeModalOpen(true); }}
+                  disabled={!canEdit('gamification')}
+                  className={`flex items-center space-x-1.5 px-3.5 py-2 bg-gradient-to-r from-accent-gam to-amber-600 text-bg-base font-extrabold text-xs rounded-lg transition-colors cursor-pointer shadow-md shadow-accent-gam/5 ${
+                    !canEdit('gamification') ? 'opacity-40 cursor-not-allowed filter grayscale' : 'hover:brightness-110'
+                  }`}
+                >
+                  <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                  <span className="uppercase tracking-wider">New Badge</span>
+                </button>
+                {!canEdit('gamification') && (
+                  <p className="text-[10px] text-text-secondary/70 mt-1 font-bold">Requires HR / Admin access</p>
+                )}
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -478,13 +541,22 @@ export default function Gamification() {
                 <h2 className="text-xl font-bold font-display text-text-primary tracking-tight">Redeemable Rewards</h2>
                 <p className="text-xs text-text-secondary mt-1 font-medium">Verify sustainability merchandise and hardware redeemable with accumulated XP points.</p>
               </div>
-              <button 
-                onClick={() => setIsRewardModalOpen(true)}
-                className="flex items-center space-x-1.5 px-3.5 py-2 bg-gradient-to-r from-accent-gam to-amber-600 hover:brightness-110 text-bg-base font-extrabold text-xs rounded-lg transition-colors cursor-pointer shadow-md shadow-accent-gam/5"
-              >
-                <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                <span className="uppercase tracking-wider">New Reward</span>
-              </button>
+              
+              <div>
+                <button 
+                  onClick={() => { if (canEdit('gamification')) setIsRewardModalOpen(true); }}
+                  disabled={!canEdit('gamification')}
+                  className={`flex items-center space-x-1.5 px-3.5 py-2 bg-gradient-to-r from-accent-gam to-amber-600 text-bg-base font-extrabold text-xs rounded-lg transition-colors cursor-pointer shadow-md shadow-accent-gam/5 ${
+                    !canEdit('gamification') ? 'opacity-40 cursor-not-allowed filter grayscale' : 'hover:brightness-110'
+                  }`}
+                >
+                  <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                  <span className="uppercase tracking-wider">New Reward</span>
+                </button>
+                {!canEdit('gamification') && (
+                  <p className="text-[10px] text-text-secondary/70 mt-1 font-bold">Requires HR / Admin access</p>
+                )}
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -501,15 +573,11 @@ export default function Gamification() {
                     <h4 className="font-bold text-text-primary mt-3 text-sm font-display tracking-wide">{item.name}</h4>
                   </div>
                   <div className="mt-4 flex items-center justify-between">
-                    <span className="text-[10px] text-text-secondary font-bold">Stock: {item.stock} left</span>
+                    <span className="text-[10px] text-text-secondary font-bold font-mono">Stock: {item.stock} left</span>
                     <button
                       disabled={item.stock === 0}
                       onClick={() => handleRedeemReward(item.id, item.name, item.costXp)}
-                      className={`px-3 py-1.5 text-[10px] font-bold rounded-lg transition-colors cursor-pointer ${
-                        item.stock === 0 
-                          ? 'bg-bg-base text-text-secondary cursor-not-allowed border border-border-sage/40' 
-                          : 'bg-accent-gam hover:brightness-110 text-bg-base'
-                      }`}
+                      className={`px-3 py-1.5 text-[10px] font-bold rounded-lg transition-colors cursor-pointer bg-accent-gam hover:brightness-110 text-bg-base`}
                     >
                       {item.stock === 0 ? 'Out of Stock' : 'Redeem'}
                     </button>
@@ -528,13 +596,6 @@ export default function Gamification() {
                 <Trophy className="w-4.5 h-4.5 text-accent-gam" />
                 <span>Leaderboard Standing</span>
               </div>
-              <button
-                onClick={() => setIsCompetitorModalOpen(true)}
-                className="flex items-center space-x-1.5 px-3.5 py-2 bg-gradient-to-r from-accent-gam to-amber-600 hover:brightness-110 text-bg-base font-extrabold text-xs rounded-lg transition-colors cursor-pointer shadow-md shadow-accent-gam/5"
-              >
-                <Plus className="w-3 h-3 stroke-[2]" />
-                <span className="uppercase tracking-wider">Add Competitor</span>
-              </button>
             </div>
 
             <div className="overflow-hidden border border-border-sage rounded-xl">
@@ -547,7 +608,7 @@ export default function Gamification() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border-sage/40 text-text-primary">
-                  {leaderboard.map((row) => (
+                  {dynamicLeaderboard.map((row) => (
                     <tr 
                       key={row.name}
                       className={`transition-colors duration-150 ${
@@ -604,8 +665,7 @@ export default function Gamification() {
                 type="number"
                 value={challengeFormData.xp}
                 onChange={(e) => setChallengeFormData({ ...challengeFormData, xp: e.target.value })}
-                placeholder="e.g. 150"
-                className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary placeholder-text-secondary/40 focus:outline-none"
+                className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary focus:outline-none focus:border-accent-gam"
               />
             </div>
             <div>
@@ -613,7 +673,7 @@ export default function Gamification() {
               <select
                 value={challengeFormData.difficulty}
                 onChange={(e) => setChallengeFormData({ ...challengeFormData, difficulty: e.target.value })}
-                className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary focus:outline-none"
+                className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary focus:outline-none focus:border-accent-gam"
               >
                 <option>Easy</option>
                 <option>Medium</option>
@@ -628,7 +688,7 @@ export default function Gamification() {
                 type="date"
                 value={challengeFormData.deadline}
                 onChange={(e) => setChallengeFormData({ ...challengeFormData, deadline: e.target.value })}
-                className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary"
+                className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary focus:outline-none focus:border-accent-gam"
               />
             </div>
             <div>
@@ -636,48 +696,13 @@ export default function Gamification() {
               <select
                 value={challengeFormData.status}
                 onChange={(e) => setChallengeFormData({ ...challengeFormData, status: e.target.value })}
-                className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary"
+                className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary focus:outline-none focus:border-accent-gam"
               >
                 <option>Active</option>
                 <option>Draft</option>
                 <option>Under Review</option>
               </select>
             </div>
-          </div>
-        </div>
-      </Modal>
-
-      {/* --- PARTICIPATION LOGGING MODAL --- */}
-      <Modal
-        isOpen={isParticipationModalOpen}
-        onClose={() => setIsParticipationModalOpen(false)}
-        title="Log Challenge Participation"
-        confirmText="Register"
-        confirmColorClass="bg-accent-gam hover:bg-amber-600 text-bg-base font-bold"
-        onConfirm={handleCreateParticipation}
-      >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Employee Name</label>
-            <input
-              type="text"
-              value={participationFormData.name}
-              onChange={(e) => setParticipationFormData({ ...participationFormData, name: e.target.value })}
-              placeholder="e.g. Aditi Rao"
-              className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary placeholder-text-secondary/40 focus:outline-none focus:border-accent-gam"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Target Challenge</label>
-            <select
-              value={participationFormData.challenge}
-              onChange={(e) => setParticipationFormData({ ...participationFormData, challenge: e.target.value })}
-              className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary focus:outline-none focus:border-accent-gam"
-            >
-              {challenges.map(c => (
-                <option key={c.id} value={c.title}>{c.title}</option>
-              ))}
-            </select>
           </div>
         </div>
       </Modal>
@@ -755,8 +780,7 @@ export default function Gamification() {
                 type="number"
                 value={rewardFormData.costXp}
                 onChange={(e) => setRewardFormData({ ...rewardFormData, costXp: e.target.value })}
-                placeholder="e.g. 200"
-                className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary placeholder-text-secondary/40 focus:outline-none"
+                className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary focus:outline-none focus:border-accent-gam"
               />
             </div>
             <div>
@@ -765,8 +789,7 @@ export default function Gamification() {
                 type="number"
                 value={rewardFormData.stock}
                 onChange={(e) => setRewardFormData({ ...rewardFormData, stock: e.target.value })}
-                placeholder="e.g. 50"
-                className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary placeholder-text-secondary/40 focus:outline-none"
+                className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary focus:outline-none focus:border-accent-gam"
               />
             </div>
           </div>
@@ -781,39 +804,6 @@ export default function Gamification() {
               <option>Hardware</option>
               <option>Social Good</option>
             </select>
-          </div>
-        </div>
-      </Modal>
-
-      {/* --- ADD COMPETITOR MODAL --- */}
-      <Modal
-        isOpen={isCompetitorModalOpen}
-        onClose={() => setIsCompetitorModalOpen(false)}
-        title="Register Leaderboard Competitor"
-        confirmText="Register"
-        confirmColorClass="bg-accent-gam hover:bg-amber-600 text-bg-base font-bold"
-        onConfirm={handleCreateCompetitor}
-      >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Competitor Name</label>
-            <input
-              type="text"
-              value={competitorFormData.name}
-              onChange={(e) => setCompetitorFormData({ ...competitorFormData, name: e.target.value })}
-              placeholder="e.g. Priya Sharma"
-              className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary placeholder-text-secondary/40 focus:outline-none focus:border-accent-gam"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Accumulated XP</label>
-            <input
-              type="number"
-              value={competitorFormData.xp}
-              onChange={(e) => setCompetitorFormData({ ...competitorFormData, xp: e.target.value })}
-              placeholder="e.g. 2500"
-              className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary placeholder-text-secondary/40 focus:outline-none focus:border-accent-gam"
-            />
           </div>
         </div>
       </Modal>

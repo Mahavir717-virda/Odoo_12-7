@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { NavLink, Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { TERMS } from '../../constants/terminology';
 import { 
   Menu, 
   X, 
@@ -11,13 +12,13 @@ import {
   FileSpreadsheet, 
   Settings as SettingsIcon, 
   Activity, 
-  Compass,
   LogOut,
-  Leaf
+  Leaf,
+  Lock
 } from 'lucide-react';
 
 export default function Layout() {
-  const { user, logout } = useAuth();
+  const { user, logout, canAccess } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
@@ -34,38 +35,38 @@ export default function Layout() {
   // Get active module from pathname
   const currentPath = location.pathname;
   let activeModule = 'Dashboard';
-  let title = 'EcoSphere: Dashboard';
+  let title = `EcoSphere: Dashboard`;
   let liveFeedBg = 'bg-brand/10 text-brand border border-brand/20';
   let liveFeedDot = 'bg-brand';
 
   if (currentPath.startsWith('/environmental')) {
     activeModule = 'Environmental';
-    title = 'EcoSphere: Environmental';
+    title = `EcoSphere: ${TERMS.goal}s`;
     liveFeedBg = 'bg-accent-env/10 text-accent-env border border-accent-env/20';
     liveFeedDot = 'bg-accent-env';
   } else if (currentPath.startsWith('/social')) {
     activeModule = 'Social';
-    title = 'EcoSphere: Social';
+    title = `EcoSphere: ${TERMS.activity}s`;
     liveFeedBg = 'bg-accent-soc/10 text-accent-soc border border-accent-soc/20';
     liveFeedDot = 'bg-accent-soc';
   } else if (currentPath.startsWith('/governance')) {
     activeModule = 'Governance';
-    title = 'EcoSphere: Governance';
+    title = `EcoSphere: ${TERMS.policy}s`;
     liveFeedBg = 'bg-accent-gov/10 text-accent-gov border border-accent-gov/20';
     liveFeedDot = 'bg-accent-gov';
   } else if (currentPath.startsWith('/gamification')) {
     activeModule = 'Gamification';
-    title = 'EcoSphere: Gamification';
+    title = `EcoSphere: ${TERMS.challenge}s`;
     liveFeedBg = 'bg-accent-gam/10 text-accent-gam border border-accent-gam/20';
     liveFeedDot = 'bg-accent-gam';
   } else if (currentPath.startsWith('/reports')) {
     activeModule = 'Reports';
-    title = 'EcoSphere: Reports';
+    title = `EcoSphere: Reports`;
     liveFeedBg = 'bg-accent-rep/10 text-accent-rep border border-accent-rep/20';
     liveFeedDot = 'bg-accent-rep';
   } else if (currentPath.startsWith('/settings')) {
     activeModule = 'Settings';
-    title = 'EcoSphere: Settings';
+    title = `EcoSphere: Settings`;
     liveFeedBg = 'bg-accent-set/10 text-accent-set border border-accent-set/20';
     liveFeedDot = 'bg-accent-set';
   }
@@ -76,28 +77,28 @@ export default function Layout() {
       title: 'Environmental',
       color: 'var(--color-accent-env)',
       icon: <Globe className="w-4 h-4 text-accent-env" />,
-      items: ['Emission Factors', 'Product ESG Profiles', 'Carbon Transactions', 'Environmental Goals'],
+      items: ['Emission Factors', 'Product ESG Profiles', 'Carbon Transactions', `${TERMS.goal}s`],
       path: '/environmental'
     },
     {
       title: 'Social',
       color: 'var(--color-accent-soc)',
       icon: <Users className="w-4 h-4 text-accent-soc" />,
-      items: ['CSR Activities', 'Employee Participation', 'Diversity Dashboard'],
+      items: [`${TERMS.activity}s`, 'Employee Participation', 'Diversity Dashboard'],
       path: '/social'
     },
     {
       title: 'Governance',
       color: 'var(--color-accent-gov)',
       icon: <Shield className="w-4 h-4 text-accent-gov" />,
-      items: ['Policies', 'Policy Acknowledgements', 'Audits', 'Compliance Issues'],
+      items: [`${TERMS.policy}s`, 'Policy Acknowledgements', 'Audits', `${TERMS.compliance}s`],
       path: '/governance'
     },
     {
       title: 'Gamification',
       color: 'var(--color-accent-gam)',
       icon: <Award className="w-4 h-4 text-accent-gam" />,
-      items: ['Challenges', 'Challenge Participation', 'Badges', 'Rewards', 'Leaderboard'],
+      items: [`${TERMS.challenge}s`, 'Challenge Participation', `${TERMS.badge}s`, `${TERMS.reward}s`, 'Leaderboard'],
       path: '/gamification'
     },
     {
@@ -184,14 +185,23 @@ export default function Layout() {
 
           {/* Grouped Modules */}
           {sidebarGroups.map((group) => {
+            const hasAccess = canAccess(group.title);
             const isGroupActive = currentPath.startsWith(group.path);
             return (
-              <div key={group.title} className="space-y-1.5 bg-bg-base/20 p-2.5 rounded-xl border border-border-sage/40">
+              <div 
+                key={group.title} 
+                className={`space-y-1.5 bg-bg-base/20 p-2.5 rounded-xl border border-border-sage/40 transition-all ${
+                  !hasAccess ? 'opacity-40 grayscale pointer-events-none' : ''
+                }`}
+              >
                 {/* Group Title Header */}
-                <div className="flex items-center space-x-2 px-1 py-1 text-xs font-bold text-text-secondary tracking-wider uppercase font-display">
-                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: group.color }}></span>
-                  {group.icon}
-                  <span>{group.title}</span>
+                <div className="flex items-center justify-between px-1 py-1 text-xs font-bold text-text-secondary tracking-wider uppercase font-display">
+                  <div className="flex items-center space-x-2">
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: group.color }}></span>
+                    {group.icon}
+                    <span>{group.title}</span>
+                  </div>
+                  {!hasAccess && <Lock className="w-3 h-3 text-text-secondary/70" />}
                 </div>
                 
                 {/* Indented Sub-Items */}
@@ -302,17 +312,21 @@ export default function Layout() {
           <div className="flex space-x-8 overflow-x-auto scrollbar-none py-3">
             {['Dashboard', 'Environmental', 'Social', 'Governance', 'Gamification', 'Reports', 'Settings'].map((tab) => {
               const toPath = tab === 'Dashboard' ? '/' : `/${tab.toLowerCase()}`;
+              const hasAccess = tab === 'Dashboard' ? true : canAccess(tab);
               return (
                 <NavLink
                   key={tab}
                   to={toPath}
-                  className={({ isActive }) => `text-xs font-bold uppercase tracking-wider whitespace-nowrap pb-1.5 border-b-2 transition-all duration-200 ${
+                  className={({ isActive }) => `text-xs font-bold uppercase tracking-wider whitespace-nowrap pb-1.5 border-b-2 transition-all duration-200 flex items-center space-x-1 ${
+                    !hasAccess ? 'opacity-30 cursor-not-allowed pointer-events-none' : ''
+                  } ${
                     isActive 
                       ? getTabColorClass(tab) 
                       : 'border-transparent text-text-secondary hover:text-text-primary hover:border-border-sage'
                   }`}
                 >
-                  {tab}
+                  <span>{tab}</span>
+                  {!hasAccess && <Lock className="w-2.5 h-2.5 text-text-secondary/60 ml-0.5" />}
                 </NavLink>
               );
             })}
