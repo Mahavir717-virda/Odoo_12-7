@@ -72,7 +72,36 @@ export class CSRService {
       }
     }
 
-    return await csrRepository.update(id, updateBody);
+    const updated = await csrRepository.update(id, updateBody);
+
+    // If status changed, trigger notification
+    if (updateBody.status && updateBody.status !== csr.status) {
+      const status = updateBody.status;
+      const isApproved = status === 'APPROVED' || status === 'Approved' || status === 'ACTIVE' || status === 'Active';
+      const isRejected = status === 'REJECTED' || status === 'Rejected' || status === 'INACTIVE' || status === 'Inactive';
+      
+      if ((isApproved || isRejected) && csr.createdBy) {
+        try {
+          const { NotificationService } = await import('../notification/notification.service.js');
+          const notificationService = new NotificationService();
+          await notificationService.createNotification({
+            userId: csr.createdBy,
+            title: isApproved ? 'CSR Activity Approved' : 'CSR Activity Rejected',
+            message: isApproved 
+              ? `${csr.title} Approved by ESG Manager`
+              : `CSR Activity Rejected. Reason: ${updateBody.rejectionReason || 'Budget exceeded.'}`,
+            module: 'Social',
+            referenceId: csr._id,
+            priority: 'Normal',
+            type: 'INFO'
+          });
+        } catch (err) {
+          console.error('Failed to trigger CSR status notification:', err.message);
+        }
+      }
+    }
+
+    return updated;
   }
 
   /**

@@ -41,8 +41,8 @@ function App() {
                 <Route path="/governance" element={<Governance />} />
                 <Route path="/gamification" element={<Gamification />} />
                 
-                {/* Reports Route - Accessible by all roles except Employee */}
-                <Route element={<ProtectedRoute allowedRoles={['Admin', 'Sustainability Team', 'Compliance Team', 'HR', 'Manager']} />}>
+                {/* Reports Route - Accessible by all roles */}
+                <Route element={<ProtectedRoute allowedRoles={['Admin', 'Sustainability Team', 'Compliance Team', 'HR', 'Manager', 'Employee']} />}>
                   <Route path="/reports" element={<Reports />} />
                 </Route>
 

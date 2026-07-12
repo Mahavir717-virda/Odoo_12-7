@@ -20,6 +20,13 @@ export class NotificationRepository {
     );
   }
 
+  async markAllAsRead(userId) {
+    return await Notification.updateMany(
+      { userId, isRead: false },
+      { $set: { isRead: true, readAt: new Date() } }
+    );
+  }
+
   async delete(id, userId) {
     return await Notification.findOneAndDelete({ _id: id, userId });
   }

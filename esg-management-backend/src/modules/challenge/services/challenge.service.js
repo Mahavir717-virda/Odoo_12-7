@@ -229,6 +229,41 @@ export class ChallengeService {
 
       // Check badges
       await this.checkAndAwardBadges(evidence.employeeId);
+
+      // Trigger challenge approved notification
+      try {
+        const { NotificationService } = await import('../../notification/notification.service.js');
+        const notificationService = new NotificationService();
+        await notificationService.createNotification({
+          userId: evidence.employeeId,
+          title: 'Challenge Approved',
+          message: `${challenge.title} - ${challenge.pointsReward} Points Added`,
+          module: 'Gamification',
+          referenceId: challenge._id,
+          priority: 'Normal',
+          type: 'INFO'
+        });
+      } catch (err) {
+        console.error('Failed to trigger challenge approval notification:', err.message);
+      }
+    } else {
+      // Trigger challenge rejected notification
+      try {
+        const challenge = await this.getChallengeById(evidence.challengeId);
+        const { NotificationService } = await import('../../notification/notification.service.js');
+        const notificationService = new NotificationService();
+        await notificationService.createNotification({
+          userId: evidence.employeeId,
+          title: 'Challenge Rejected',
+          message: `Challenge "${challenge.title}" Rejected. Reason: ${remarks || 'Evidence missing.'}`,
+          module: 'Gamification',
+          referenceId: challenge._id,
+          priority: 'Normal',
+          type: 'INFO'
+        });
+      } catch (err) {
+        console.error('Failed to trigger challenge rejection notification:', err.message);
+      }
     }
 
     return verification;
@@ -256,7 +291,27 @@ export class ChallengeService {
 
     const eligibleBadges = await challengeRepository.findBadgesToUnlock(user.xp, completedCount);
     for (const badge of eligibleBadges) {
-      await challengeRepository.grantBadgeToEmployee(employeeId, badge._id);
+      const EmployeeBadge = mongoose.model('EmployeeBadge');
+      const alreadyHas = await EmployeeBadge.findOne({ employeeId, badgeId: badge._id });
+      if (!alreadyHas) {
+        await challengeRepository.grantBadgeToEmployee(employeeId, badge._id);
+        // Trigger badge unlocked notification
+        try {
+          const { NotificationService } = await import('../../notification/notification.service.js');
+          const notificationService = new NotificationService();
+          await notificationService.createNotification({
+            userId: employeeId,
+            title: 'Congratulations!',
+            message: `You unlocked ${badge.name} Badge`,
+            module: 'Gamification',
+            referenceId: badge._id,
+            priority: 'Normal',
+            type: 'INFO'
+          });
+        } catch (err) {
+          console.error('Failed to trigger badge award notification:', err.message);
+        }
+      }
     }
   }
 
