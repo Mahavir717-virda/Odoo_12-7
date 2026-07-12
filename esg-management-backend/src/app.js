@@ -5,6 +5,7 @@ import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
 import compression from 'compression';
 
+import './modules/auth/auth.model.js';
 import { config } from './config/env.js';
 import { logger } from './config/logger.js';
 import routes from './routes/index.js';

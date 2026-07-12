@@ -20,6 +20,7 @@ import complianceRouter from '../modules/compliance/compliance.route.js';
 import dashboardRouter from '../modules/dashboard/dashboard.route.js';
 import reportRouter from '../modules/report/report.route.js';
 import notificationRouter from '../modules/notification/notification.route.js';
+import authRouter from '../modules/auth/auth.route.js';
 
 const router = Router();
 
@@ -42,6 +43,7 @@ router.use('/compliances', complianceRouter);
 router.use('/dashboard', dashboardRouter);
 router.use('/reports', reportRouter);
 router.use('/notifications', notificationRouter);
+router.use('/auth', authRouter);
 
 /**
  * GET /api/v1
