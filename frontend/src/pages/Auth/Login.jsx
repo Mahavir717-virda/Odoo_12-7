@@ -34,23 +34,24 @@ export default function Login() {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#0B0F14] items-center justify-center p-4 font-sans select-none">
-      <div className="w-full max-w-[400px] bg-[#11161D] border border-white/10 rounded-2xl p-8 shadow-xl flex flex-col">
+    <div className="flex min-h-screen bg-bg-base bg-topo-auth items-center justify-center p-4 font-sans select-none">
+      <div className="w-full max-w-[400px] bg-bg-card border border-border-sage rounded-2xl p-8 shadow-2xl shadow-brand/5 flex flex-col relative z-10">
+        
         {/* Header Branding */}
         <div className="flex flex-col items-center mb-8">
           <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
-              <Leaf className="w-4 h-4 text-white" />
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-brand to-accent-env flex items-center justify-center shadow-lg shadow-brand/20">
+              <Leaf className="w-4 h-4 text-bg-base" />
             </div>
-            <h1 className="font-extrabold text-white text-xl tracking-wide leading-tight">EcoSphere</h1>
+            <h1 className="font-display font-extrabold text-text-primary text-xl tracking-wide leading-tight">EcoSphere</h1>
           </div>
-          <p className="text-xs text-gray-400 font-semibold tracking-wider uppercase mt-1">
+          <p className="text-[10px] text-text-secondary font-bold tracking-wider uppercase mt-1">
             ESG Management Platform
           </p>
         </div>
 
         {/* Form Heading */}
-        <h2 className="text-lg font-bold text-white text-center mb-6">
+        <h2 className="text-sm font-bold text-text-primary text-center uppercase tracking-wider mb-6 font-display">
           Log in to your account
         </h2>
 
@@ -65,17 +66,17 @@ export default function Login() {
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* Email input */}
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block">
+            <label className="text-[10px] font-bold text-text-secondary uppercase tracking-wider block">
               Email Address
             </label>
             <div className="relative">
-              <Mail className="absolute left-3 top-3 w-4 h-4 text-gray-500" />
+              <Mail className="absolute left-3 top-3.5 w-4 h-4 text-text-secondary" />
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="name@company.com"
-                className="w-full pl-9 pr-4 py-2.5 bg-[#0B0F14] border border-white/10 rounded-lg text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-colors"
+                className="w-full pl-9 pr-4 py-2.5 bg-bg-base border border-border-sage rounded-lg text-sm text-text-primary placeholder-text-secondary/50 focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all"
                 disabled={isLoading}
               />
             </div>
@@ -83,23 +84,23 @@ export default function Login() {
 
           {/* Password input */}
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block">
+            <label className="text-[10px] font-bold text-text-secondary uppercase tracking-wider block">
               Password
             </label>
             <div className="relative">
-              <Lock className="absolute left-3 top-3 w-4 h-4 text-gray-500" />
+              <Lock className="absolute left-3 top-3.5 w-4 h-4 text-text-secondary" />
               <input
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full pl-9 pr-10 py-2.5 bg-[#0B0F14] border border-white/10 rounded-lg text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-colors"
+                className="w-full pl-9 pr-10 py-2.5 bg-bg-base border border-border-sage rounded-lg text-sm text-text-primary placeholder-text-secondary/50 focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all"
                 disabled={isLoading}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-3 text-gray-500 hover:text-gray-300 transition-colors"
+                className="absolute right-3 top-3 text-text-secondary hover:text-text-primary transition-colors"
                 disabled={isLoading}
               >
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -110,12 +111,12 @@ export default function Login() {
           {/* Submit button */}
           <button
             type="submit"
-            className="w-full py-3 bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-600 hover:to-emerald-600 text-black font-extrabold text-xs uppercase tracking-widest rounded-lg shadow-lg shadow-cyan-950/20 transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 flex items-center justify-center space-x-2"
+            className="w-full py-3 bg-gradient-to-r from-brand to-accent-env hover:brightness-110 text-bg-base font-extrabold text-xs uppercase tracking-widest rounded-lg shadow-lg shadow-brand/10 transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 cursor-pointer"
             disabled={isLoading}
           >
             {isLoading ? (
               <>
-                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-black" fill="none" viewBox="0 0 24 24">
+                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-bg-base" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
@@ -129,9 +130,9 @@ export default function Login() {
 
         {/* Footer Redirect link */}
         <div className="mt-6 text-center">
-          <p className="text-xs text-gray-500 font-medium">
+          <p className="text-xs text-text-secondary font-medium">
             Don't have an account?{' '}
-            <Link to="/signup" className="text-cyan-400 hover:text-cyan-300 hover:underline transition-colors ml-1">
+            <Link to="/signup" className="text-brand hover:text-brand-hover hover:underline transition-colors ml-1 font-bold">
               Sign up
             </Link>
           </p>
