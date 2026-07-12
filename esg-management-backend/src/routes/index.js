@@ -4,12 +4,16 @@ import { ApiResponse } from '../utils/ApiResponse.js';
 import { HTTP_STATUS } from '../utils/constants.js';
 import departmentRouter from '../modules/department/department.route.js';
 import categoryRouter from '../modules/category/category.route.js';
+import emissionFactorRouter from '../modules/emission-factor/emissionFactor.route.js';
+import productESGProfileRouter from '../modules/product-esg-profile/productESGProfile.route.js';
 
 const router = Router();
 
 // Mount modules
 router.use('/departments', departmentRouter);
 router.use('/categories', categoryRouter);
+router.use('/emission-factors', emissionFactorRouter);
+router.use('/product-esg-profiles', productESGProfileRouter);
 
 /**
  * GET /api/v1
