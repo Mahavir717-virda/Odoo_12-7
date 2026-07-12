@@ -8,6 +8,8 @@ import emissionFactorRouter from '../modules/emission-factor/emissionFactor.rout
 import productESGProfileRouter from '../modules/product-esg-profile/productESGProfile.route.js';
 import carbonTransactionRouter from '../modules/carbon-transaction/carbonTransaction.route.js';
 import dropdownRouter from '../modules/dropdown/dropdown.route.js';
+import csrRouter from '../modules/csr/csr.route.js';
+import participationRouter from '../modules/participation/participation.route.js';
 
 const router = Router();
 
