@@ -59,6 +59,31 @@ export const connectDB = async () => {
       ]);
       logger.info('Default report types seeded successfully');
     }
+
+    // Seed default CSR activities
+    const { CSR } = await import('../modules/csr/csr.model.js');
+    const csrCount = await CSR.countDocuments();
+    if (csrCount === 0) {
+      await CSR.insertMany([
+        {
+          title: "Mangrove Planting Drive",
+          description: "Help restore coastal ecosystems by planting mangrove saplings.",
+          category: 'ENVIRONMENT',
+          points: 120,
+          status: 'ACTIVE',
+          evidenceRequired: false
+        },
+        {
+          title: "E-Waste Disposal Week",
+          description: "Collect and safely recycle obsolete electronic devices and batteries.",
+          category: 'ENVIRONMENT',
+          points: 80,
+          status: 'ACTIVE',
+          evidenceRequired: false
+        }
+      ]);
+      logger.info('Default CSR activities seeded successfully');
+    }
   } catch (error) {
     logger.error(`MongoDB Connection Error: ${error.message}`);
     if (retryCount < MAX_RETRIES) {

@@ -32,7 +32,7 @@ export class CSRService {
     const status = query.status;
     const category = query.category;
 
-    return await csrRepository.findAll({
+    let data = await csrRepository.findAll({
       page,
       limit,
       sortBy,
@@ -41,6 +41,36 @@ export class CSRService {
       status,
       category,
     });
+
+    if (data.totalCount === 0 && !search && !status && !category) {
+      await csrRepository.create({
+        title: "Mangrove Planting Drive",
+        description: "Help restore coastal ecosystems by planting mangrove saplings.",
+        category: 'ENVIRONMENT',
+        points: 120,
+        status: 'ACTIVE',
+        evidenceRequired: false
+      });
+      await csrRepository.create({
+        title: "E-Waste Disposal Week",
+        description: "Collect and safely recycle obsolete electronic devices and batteries.",
+        category: 'ENVIRONMENT',
+        points: 80,
+        status: 'ACTIVE',
+        evidenceRequired: false
+      });
+      data = await csrRepository.findAll({
+        page,
+        limit,
+        sortBy,
+        order,
+        search,
+        status,
+        category,
+      });
+    }
+
+    return data;
   }
 
   /**

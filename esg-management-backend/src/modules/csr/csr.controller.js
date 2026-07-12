@@ -70,4 +70,39 @@ export class CSRController {
       new ApiResponse(HTTP_STATUS.OK, null, 'CSR activity deleted successfully')
     );
   });
+
+  /**
+   * Get Diversity metrics
+   */
+  getDiversity = asyncHandler(async (req, res) => {
+    const { Diversity } = await import('./diversity.model.js');
+    let record = await Diversity.findOne();
+    if (!record) {
+      record = await Diversity.create({
+        genderFemalePercentage: 48,
+        genderMalePercentage: 50,
+        genderOtherPercentage: 2,
+        veteranPercentage: 5.4,
+        activeInclusionPrograms: 8
+      });
+    }
+    res.status(HTTP_STATUS.OK).json(
+      new ApiResponse(HTTP_STATUS.OK, record, 'Diversity metrics retrieved successfully')
+    );
+  });
+
+  /**
+   * Update Diversity metrics
+   */
+  updateDiversity = asyncHandler(async (req, res) => {
+    const { Diversity } = await import('./diversity.model.js');
+    let record = await Diversity.findOne();
+    if (!record) {
+      record = await Diversity.create({});
+    }
+    const updated = await Diversity.findByIdAndUpdate(record._id, req.body, { new: true, runValidators: true });
+    res.status(HTTP_STATUS.OK).json(
+      new ApiResponse(HTTP_STATUS.OK, updated, 'Diversity metrics updated successfully')
+    );
+  });
 }

@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { ParticipationRepository } from './participation.repository.js';
 import { CSRService } from '../csr/csr.service.js';
 import { ApiError } from '../../utils/ApiError.js';
@@ -72,6 +73,13 @@ export class ParticipationService {
       points: participation.activity.points,
       approvedBy: adminId,
     });
+
+    // Update employee balance (credit points and XP)
+    const User = mongoose.model('User');
+    await User.findByIdAndUpdate(
+      participation.employee,
+      { $inc: { xp: participation.activity.points, points: participation.activity.points } }
+    );
 
     // Notify employee
     try {
