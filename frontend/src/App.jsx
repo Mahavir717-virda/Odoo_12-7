@@ -1,6 +1,8 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Layout from './components/layout/Layout';
+import { AuthProvider } from './context/AuthContext';
+import ProtectedRoute from './components/auth/ProtectedRoute';
 
 // Pages
 import Dashboard from './pages/Dashboard/Dashboard';
@@ -10,22 +12,33 @@ import Governance from './pages/Governance/Governance';
 import Gamification from './pages/Gamification/Gamification';
 import Reports from './pages/Reports/Reports';
 import Settings from './pages/Settings/Settings';
+import Login from './pages/Auth/Login';
+import Signup from './pages/Auth/Signup';
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route element={<Layout />}>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/environmental" element={<Environmental />} />
-          <Route path="/social" element={<Social />} />
-          <Route path="/governance" element={<Governance />} />
-          <Route path="/gamification" element={<Gamification />} />
-          <Route path="/reports" element={<Reports />} />
-          <Route path="/settings" element={<Settings />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+
+          {/* Protected Routes inside Shell Layout */}
+          <Route element={<ProtectedRoute />}>
+            <Route element={<Layout />}>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/environmental" element={<Environmental />} />
+              <Route path="/social" element={<Social />} />
+              <Route path="/governance" element={<Governance />} />
+              <Route path="/gamification" element={<Gamification />} />
+              <Route path="/reports" element={<Reports />} />
+              <Route path="/settings" element={<Settings />} />
+            </Route>
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
 

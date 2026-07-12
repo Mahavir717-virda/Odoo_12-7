@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { NavLink, Link, Outlet, useLocation } from 'react-router-dom';
+import { NavLink, Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import { 
   Menu, 
   X, 
@@ -10,12 +11,24 @@ import {
   FileSpreadsheet, 
   Settings as SettingsIcon, 
   Activity, 
-  Compass
+  Compass,
+  LogOut
 } from 'lucide-react';
 
 export default function Layout() {
+  const { user, logout } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
+
+  const initials = user?.name
+    ? user.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
+    : 'US';
 
   // Get active module from pathname
   const currentPath = location.pathname;
@@ -212,11 +225,11 @@ export default function Layout() {
         <div className="p-4 border-t border-[#1F2937] bg-gray-900/20">
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 rounded-full bg-cyan-950 border border-cyan-800 flex items-center justify-center text-xs font-bold text-cyan-400">
-              DP
+              {initials}
             </div>
             <div>
-              <p className="text-xs font-semibold text-white">Deep Pathak</p>
-              <p className="text-[10px] text-gray-500 font-semibold">Administrator</p>
+              <p className="text-xs font-semibold text-white">{user?.name}</p>
+              <p className="text-[10px] text-gray-500 font-semibold">{user?.role}</p>
             </div>
           </div>
         </div>
@@ -255,11 +268,31 @@ export default function Layout() {
             </span>
           </div>
 
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-4">
             <span className={`hidden md:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${liveFeedBg}`}>
               <span className={`w-1.5 h-1.5 rounded-full ${liveFeedDot} animate-pulse mr-1.5`}></span>
               Live Feed
             </span>
+
+            {/* Profile Chip */}
+            <div className="flex items-center space-x-3 border-l border-gray-800/60 pl-4">
+              <div className="w-8 h-8 rounded-full bg-cyan-950 border border-cyan-800 flex items-center justify-center text-xs font-bold text-cyan-400">
+                {initials}
+              </div>
+              <div className="hidden sm:block text-left">
+                <p className="text-xs font-bold text-white leading-none">{user?.name}</p>
+                <span className="inline-block text-[9px] font-extrabold uppercase bg-gray-800 text-gray-400 px-1.5 py-0.5 rounded mt-1">
+                  {user?.role}
+                </span>
+              </div>
+              <button 
+                onClick={handleLogout}
+                className="p-1.5 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-all duration-150 ml-1"
+                title="Log Out"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </header>
 
