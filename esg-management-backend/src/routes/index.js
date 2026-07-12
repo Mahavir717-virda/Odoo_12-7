@@ -16,6 +16,8 @@ import badgeRouter from '../modules/badge/badge.route.js';
 import rewardRouter from '../modules/reward/reward.route.js';
 import policyRouter from '../modules/policy/policy.route.js';
 import auditRouter from '../modules/audit/audit.route.js';
+import complianceRouter from '../modules/compliance/compliance.route.js';
+import dashboardRouter from '../modules/dashboard/dashboard.route.js';
 
 const router = Router();
 
@@ -34,6 +36,8 @@ router.use('/badges', badgeRouter);
 router.use('/rewards', rewardRouter);
 router.use('/policies', policyRouter);
 router.use('/audits', auditRouter);
+router.use('/compliances', complianceRouter);
+router.use('/dashboard', dashboardRouter);
 
 /**
  * GET /api/v1
