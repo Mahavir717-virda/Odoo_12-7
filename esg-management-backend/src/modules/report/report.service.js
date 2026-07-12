@@ -24,6 +24,8 @@ export class ReportService {
   async getEnvironmentalReport(filters = {}) {
     const CarbonTransaction = mongoose.model('CarbonTransaction');
     const Goal = mongoose.model('Goal');
+    const EmissionFactor = mongoose.model('EmissionFactor');
+    const ProductESGProfile = mongoose.model('ProductESGProfile');
     const query = { isDeleted: false };
 
     const dateQ = this.buildDateQuery(filters.startDate, filters.endDate);
@@ -34,14 +36,16 @@ export class ReportService {
       query.department = deptId;
     }
 
-    const transactions = await CarbonTransaction.find(query)
-      .populate({
-        path: 'emissionFactor',
-        populate: { path: 'category' }
-      })
-      .populate('department')
-      .sort({ transactionDate: -1 })
-      .lean();
+    const [transactions, goals, factors, products] = await Promise.all([
+      CarbonTransaction.find(query)
+        .populate({ path: 'emissionFactor', populate: { path: 'category' } })
+        .populate('department')
+        .sort({ transactionDate: -1 })
+        .lean(),
+      Goal.find(deptId ? { department: deptId, isDeleted: false } : { isDeleted: false }).populate('department').lean(),
+      EmissionFactor.find({ isDeleted: false }).populate('category').lean(),
+      ProductESGProfile.find(deptId ? { department: deptId, isDeleted: false } : { isDeleted: false }).lean()
+    ]);
 
     // Aggregations
     let totalCarbon = 0;
@@ -56,22 +60,18 @@ export class ReportService {
       const carbon = t.calculatedEmission || 0;
       totalCarbon += carbon;
 
-      // Group by scope/category
       const scope = t.emissionFactor?.category?.name || t.emissionFactor?.category || 'Scope 3';
       const scopeStr = typeof scope === 'object' ? (scope.name || JSON.stringify(scope)) : String(scope);
       if (scopeStr.includes('1')) scope1 += carbon;
       else if (scopeStr.includes('2')) scope2 += carbon;
       else scope3 += carbon;
 
-      // Group by department
       const d = t.department?.name || 'Unassigned';
       deptMap[d] = (deptMap[d] || 0) + carbon;
 
-      // Group by emission factor name
       const fName = t.emissionFactor?.name || 'Other';
       factorMap[fName] = (factorMap[fName] || 0) + carbon;
 
-      // Group by month
       if (t.transactionDate) {
         const month = new Date(t.transactionDate).toLocaleString('default', { month: 'short' });
         monthlyMap[month] = (monthlyMap[month] || 0) + carbon;
@@ -88,12 +88,6 @@ export class ReportService {
     factorList.sort((a, b) => b.value - a.value);
     const topCarbonSource = factorList.length > 0 ? factorList[0].name : '—';
 
-    // Goal progress
-    const goalsQuery = { isDeleted: false };
-    if (deptId) {
-      goalsQuery.department = deptId;
-    }
-    const goals = await Goal.find(goalsQuery).populate('department').lean();
     const goalCount = goals.length;
     const completedGoals = goals.filter(g => g.progressPercentage >= 100 || g.status === 'Completed').length;
     const goalProgress = goalCount > 0 ? Math.round((completedGoals / goalCount) * 100) : 0;
@@ -121,6 +115,12 @@ export class ReportService {
       value: Math.round(item.value)
     }));
 
+    // Calculate department environmental score dynamically
+    const deptScores = {};
+    deptList.forEach(item => {
+      deptScores[item.name] = Math.max(10, Math.min(100, 100 - Math.round(item.value / 10)));
+    });
+
     return {
       reportType: 'Environmental (Carbon Footprint)',
       generatedAt: new Date(),
@@ -141,31 +141,46 @@ export class ReportService {
         goalProgressData,
         emissionByProduct
       },
-      data: transactions
+      data: {
+        transactions,
+        goals,
+        factors,
+        products,
+        deptScores
+      }
     };
   }
 
   async getSocialReport(filters = {}) {
     const CSR = mongoose.model('CSR');
     const Participation = mongoose.model('Participation');
+    const Challenge = mongoose.model('Challenge');
+    const Badge = mongoose.model('Badge');
+    const Reward = mongoose.model('Reward');
+    const User = mongoose.model('User');
     const query = { isDeleted: false };
 
     const dateQ = this.buildDateQuery(filters.startDate, filters.endDate);
     if (dateQ) query.createdAt = dateQ;
 
-    const csrProjects = await CSR.find(query).sort({ createdAt: -1 }).lean();
+    const deptId = await this.resolveDepartmentId(filters.department);
+
+    const [csrProjects, challenges, badges, rewards, allUsers] = await Promise.all([
+      CSR.find(query).sort({ createdAt: -1 }).lean(),
+      Challenge.find({ isDeleted: false }).lean(),
+      Badge.find({ isDeleted: false }).lean(),
+      Reward.find({ isDeleted: false }).lean(),
+      User.find({}).lean()
+    ]);
 
     let totalActivities = csrProjects.length;
     let completedActivities = csrProjects.filter(p => p.status === 'COMPLETED' || p.status === 'Completed').length;
     let pendingActivities = totalActivities - completedActivities;
     let volunteerHours = csrProjects.reduce((sum, p) => sum + (p.volunteerHours || 0), 0);
 
-    // Filter participations by department if selected
     const partQuery = { isDeleted: false };
-    const deptId = await this.resolveDepartmentId(filters.department);
     if (deptId) {
-      const User = mongoose.model('User');
-      const usersInDept = await User.find({ department: deptId }).select('_id').lean();
+      const usersInDept = allUsers.filter(u => u.department === deptId || String(u.department) === String(deptId));
       const userIds = usersInDept.map(u => u._id);
       partQuery.employee = { $in: userIds };
     }
@@ -175,18 +190,10 @@ export class ReportService {
       .populate('activity')
       .lean();
 
-    let totalEmployeesCount = 100;
-    try {
-      const User = mongoose.model('User');
-      totalEmployeesCount = await User.countDocuments({});
-    } catch (e) {}
-
     const uniqueParticipants = new Set(participations.map(p => p.employee?._id?.toString()).filter(Boolean));
+    const totalEmployeesCount = allUsers.length;
     const participationPercentage = totalEmployeesCount > 0 ? Math.round((uniqueParticipants.size / totalEmployeesCount) * 100) : 0;
 
-    // Groups by dynamic roles diversity
-    const User = mongoose.model('User');
-    const allUsers = await User.find({}).lean();
     const roleMap = {};
     allUsers.forEach(u => {
       roleMap[u.role] = (roleMap[u.role] || 0) + 1;
@@ -203,6 +210,15 @@ export class ReportService {
       department,
       Count: count
     }));
+
+    // Calculate department social score dynamically
+    const deptScores = {};
+    const Department = mongoose.model('Department');
+    const depts = await Department.find({ isDeleted: false }).lean();
+    depts.forEach(d => {
+      const deptParts = participations.filter(p => p.employee?.department === d._id || String(p.employee?.department) === String(d._id));
+      deptScores[d.name] = Math.min(100, 50 + deptParts.length * 10);
+    });
 
     return {
       reportType: 'Social (CSR & Initiatives)',
@@ -230,7 +246,14 @@ export class ReportService {
         rolesDiversity,
         csrDepartmentComparison
       },
-      data: participations
+      data: {
+        csrProjects,
+        participations,
+        challenges,
+        badges,
+        rewards,
+        deptScores
+      }
     };
   }
 
@@ -258,11 +281,12 @@ export class ReportService {
       complianceQuery.department = deptId;
     }
 
-    const [policies, audits, compliances, totalUsers, policyAcksCount] = await Promise.all([
+    const [policies, audits, compliances, totalUsers, policyAcks, policyAcksCount] = await Promise.all([
       Policy.find(policyQuery).populate('department').sort({ createdAt: -1 }).lean(),
       Audit.find(auditQuery).populate('department').sort({ scheduledDate: -1 }).lean(),
       Compliance.find(complianceQuery).populate('department').sort({ dueDate: -1 }).lean(),
       mongoose.model('User').countDocuments({}),
+      PolicyAcknowledgement.find({}).populate('policyId').populate('employeeId').lean(),
       PolicyAcknowledgement.countDocuments({ acknowledged: true })
     ]);
 
@@ -281,7 +305,6 @@ export class ReportService {
       ? Math.round((policyAcksCount / (policiesPublished * totalUsers)) * 100)
       : 95;
 
-    // Issue Severity distribution
     const severityMap = { Critical: 0, High: 0, Medium: 0, Low: 0 };
     compliances.forEach(c => {
       const sev = c.severity || 'Medium';
@@ -292,6 +315,16 @@ export class ReportService {
     });
 
     const issueSeverity = Object.entries(severityMap).map(([name, value]) => ({ name, value }));
+
+    // Calculate department governance scores dynamically
+    const deptScores = {};
+    const Department = mongoose.model('Department');
+    const depts = await Department.find({ isDeleted: false }).lean();
+    depts.forEach(d => {
+      const deptCompliances = compliances.filter(c => c.department?._id === d._id || String(c.department?._id) === String(d._id));
+      const openCount = deptCompliances.filter(c => c.status === 'OPEN' || c.status === 'Open').length;
+      deptScores[d.name] = Math.max(10, 100 - openCount * 15);
+    });
 
     return {
       reportType: 'Governance (Policies & Audits)',
@@ -311,17 +344,17 @@ export class ReportService {
       },
       charts: {
         issueSeverity,
-        departmentCompliance: [
-          { department: 'Manufacturing', Score: 88 },
-          { department: 'Corporate', Score: 96 },
-          { department: 'Sales', Score: 90 },
-          { department: 'R&D', Score: 94 }
-        ]
+        departmentCompliance: depts.map(d => ({
+          department: d.name,
+          Score: deptScores[d.name] || 90
+        }))
       },
       data: {
         policies,
+        acknowledgements: policyAcks,
         audits,
-        compliances
+        compliances,
+        deptScores
       }
     };
   }
@@ -337,7 +370,6 @@ export class ReportService {
     const socScore = soc.metrics.participationPercentage || 80;
     const govScore = gov.metrics.complianceScore || 85;
 
-    // Fetch dynamic category weights
     let envW = 40;
     let socW = 30;
     let govW = 30;
@@ -359,7 +391,6 @@ export class ReportService {
 
     const overallScore = Math.round((envScore * (envW / 100)) + (socScore * (socW / 100)) + (govScore * (govW / 100)));
 
-    // Calculate department rankings dynamically
     const Department = mongoose.model('Department');
     const depts = await Department.find({ isDeleted: false });
     const departmentRankings = depts.map(d => {
@@ -386,8 +417,8 @@ export class ReportService {
       },
       overallScore,
       metrics: {
-        carbonTransactionsCount: env.data.length,
-        csrProjectsCount: soc.data.length,
+        carbonTransactionsCount: env.data.transactions.length,
+        csrProjectsCount: soc.data.csrProjects.length,
         policiesCount: gov.data.policies.length,
         auditsCount: gov.data.audits.length,
         goalCompletion: env.metrics.goalProgress,
@@ -408,7 +439,7 @@ export class ReportService {
       recentActivities: [
         { id: 1, message: `Policy acknowledgements tracked: ${gov.metrics.policiesAccepted} active.`, date: 'Today' },
         { id: 2, message: `Goal progress: ${env.metrics.goalProgress}% targets achieved.`, date: 'Yesterday' },
-        { id: 3, message: `Carbon transactions logged: ${env.data.length} entries.`, date: '2 days ago' }
+        { id: 3, message: `Carbon transactions logged: ${env.data.transactions.length} entries.`, date: '2 days ago' }
       ]
     };
   }
@@ -421,14 +452,14 @@ export class ReportService {
 
     if (module === 'Environmental') {
       const res = await this.getEnvironmentalReport(filters);
-      data = res.data;
+      data = res.data.transactions;
       metrics = res.metrics;
       charts = [
         { type: 'line', name: 'Scope Carbon Trend', data: res.charts.monthlyTrend }
       ];
     } else if (module === 'Social') {
       const res = await this.getSocialReport(filters);
-      data = res.data;
+      data = res.data.participations;
       metrics = res.metrics;
       charts = [
         { type: 'bar', name: 'CSR Projects per Department', data: res.charts.csrDepartmentComparison }
@@ -546,7 +577,7 @@ export class ReportService {
     const PDFDocument = (await import('pdfkit')).default;
     return new Promise((resolve, reject) => {
       try {
-        const doc = new PDFDocument({ margin: 50 });
+        const doc = new PDFDocument({ margin: 50, bufferPages: true });
         const buffers = [];
         doc.on('data', buffers.push.bind(buffers));
         doc.on('end', () => resolve(Buffer.concat(buffers)));
@@ -588,28 +619,61 @@ export class ReportService {
         doc.fillColor('#1b4332').fontSize(12).text('Detailed Records:', { underline: true }).moveDown(0.5);
         doc.fillColor('#2d3748').fontSize(8);
 
-        const dataRows = Array.isArray(report.data) 
-          ? report.data 
-          : (report.data ? (report.data.policies ? [...report.data.policies, ...report.data.audits, ...report.data.compliances] : [report.data]) : []);
+        if (report.data && typeof report.data === 'object' && !Array.isArray(report.data)) {
+          Object.entries(report.data).forEach(([sectionKey, rows]) => {
+            if (sectionKey === 'deptScores') {
+              doc.fillColor('#1b4332').fontSize(12).text('Department Scores:', { underline: true }).moveDown(0.5);
+              doc.fillColor('#2d3748').fontSize(9);
+              Object.entries(rows).forEach(([dept, score]) => {
+                doc.text(`  • ${dept}: ${score} / 100`);
+              });
+              doc.moveDown(1.5);
+              return;
+            }
+            if (!Array.isArray(rows) || rows.length === 0) return;
 
-        if (dataRows && dataRows.length > 0) {
-          dataRows.forEach((row, i) => {
-            const plainRow = row.toJSON ? row.toJSON() : row;
-            doc.fillColor('#1b4332').text(`--- Record ${i + 1} ---`, { underline: true });
-            doc.fillColor('#2d3748');
-            Object.entries(plainRow).forEach(([k, v]) => {
-              if (k === '_id' || k === '__v' || k === 'isDeleted') return;
-              let displayVal = v;
-              if (v && typeof v === 'object') {
-                displayVal = v.name || v.title || JSON.stringify(v);
-              }
-              const formattedK = k.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
-              doc.text(`  ${formattedK}: ${displayVal}`);
+            const sectionName = sectionKey.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+            doc.fillColor('#1b4332').fontSize(12).text(`${sectionName}:`, { underline: true }).moveDown(0.5);
+            doc.fillColor('#2d3748').fontSize(8);
+
+            rows.forEach((row, i) => {
+              const plainRow = row.toJSON ? row.toJSON() : row;
+              doc.fillColor('#1b4332').fontSize(9).text(`  --- ${sectionName} Record ${i + 1} ---`, { underline: true });
+              doc.fillColor('#2d3748').fontSize(8);
+              Object.entries(plainRow).forEach(([k, v]) => {
+                if (k === '_id' || k === '__v' || k === 'isDeleted') return;
+                let displayVal = v;
+                if (v && typeof v === 'object') {
+                  displayVal = v.name || v.title || JSON.stringify(v);
+                }
+                const formattedK = k.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+                doc.text(`    ${formattedK}: ${displayVal}`);
+              });
+              doc.moveDown(0.3);
             });
-            doc.moveDown(0.5);
+            doc.moveDown(1);
           });
         } else {
-          doc.fillColor('#e53e3e').fontSize(10).text('No data available for the selected filters.', { align: 'center' });
+          const dataRows = Array.isArray(report.data) ? report.data : [report.data];
+          if (dataRows && dataRows.length > 0 && dataRows[0] !== undefined) {
+            dataRows.forEach((row, i) => {
+              const plainRow = row.toJSON ? row.toJSON() : row;
+              doc.fillColor('#1b4332').text(`--- Record ${i + 1} ---`, { underline: true });
+              doc.fillColor('#2d3748');
+              Object.entries(plainRow).forEach(([k, v]) => {
+                if (k === '_id' || k === '__v' || k === 'isDeleted') return;
+                let displayVal = v;
+                if (v && typeof v === 'object') {
+                  displayVal = v.name || v.title || JSON.stringify(v);
+                }
+                const formattedK = k.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+                doc.text(`  ${formattedK}: ${displayVal}`);
+              });
+              doc.moveDown(0.5);
+            });
+          } else {
+            doc.fillColor('#e53e3e').fontSize(10).text('No data available for the selected filters.', { align: 'center' });
+          }
         }
 
         // Footer Page numbering
