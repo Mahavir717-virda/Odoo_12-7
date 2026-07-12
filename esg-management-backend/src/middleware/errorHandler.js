@@ -19,9 +19,15 @@ export const errorHandler = (err, req, res, next) => {
     error = new ApiError(statusCode, message, false, err.stack);
   }
 
+  // Parse comma separated error list (e.g. from validation triggers) into errors array structure
+  const errorsArray = error.message && error.message.includes(', ') 
+    ? error.message.split(', ') 
+    : [error.message];
+
   const response = {
     success: false,
-    message: error.message,
+    message: errorsArray[0] || 'An error occurred',
+    errors: errorsArray,
     ...(config.env === 'development' && { stack: error.stack }),
   };
 
@@ -33,3 +39,4 @@ export const errorHandler = (err, req, res, next) => {
 
   res.status(error.statusCode).json(response);
 };
+

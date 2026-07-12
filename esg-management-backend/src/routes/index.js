@@ -6,6 +6,8 @@ import departmentRouter from '../modules/department/department.route.js';
 import categoryRouter from '../modules/category/category.route.js';
 import emissionFactorRouter from '../modules/emission-factor/emissionFactor.route.js';
 import productESGProfileRouter from '../modules/product-esg-profile/productESGProfile.route.js';
+import carbonTransactionRouter from '../modules/carbon-transaction/carbonTransaction.route.js';
+import dropdownRouter from '../modules/dropdown/dropdown.route.js';
 
 const router = Router();
 
@@ -14,6 +16,8 @@ router.use('/departments', departmentRouter);
 router.use('/categories', categoryRouter);
 router.use('/emission-factors', emissionFactorRouter);
 router.use('/product-esg-profiles', productESGProfileRouter);
+router.use('/carbon-transactions', carbonTransactionRouter);
+router.use('/dropdowns', dropdownRouter);
 
 /**
  * GET /api/v1

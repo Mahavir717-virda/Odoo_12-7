@@ -1,0 +1,37 @@
+/**
+ * Carbon Transaction Module Constants
+ */
+
+export const ACTIVITY_TYPE = {
+  PURCHASE: 'PURCHASE',
+  MANUFACTURING: 'MANUFACTURING',
+  FLEET: 'FLEET',
+  EXPENSE: 'EXPENSE',
+  ENERGY: 'ENERGY',
+  TRANSPORT: 'TRANSPORT',
+  MANUAL: 'MANUAL',
+};
+
+export const ALLOWED_ACTIVITY_TYPES = Object.values(ACTIVITY_TYPE);
+
+export const APPROVAL_STATUS = {
+  PENDING: 'PENDING',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+};
+
+export const ALLOWED_APPROVAL_STATUSES = Object.values(APPROVAL_STATUS);
+
+export const TRANSACTION_STATUS = {
+  ACTIVE: 'ACTIVE',
+  INACTIVE: 'INACTIVE',
+};
+
+export const ALLOWED_TRANSACTION_STATUSES = Object.values(TRANSACTION_STATUS);
+
+export const CALCULATION_METHOD = {
+  AUTO: 'AUTO',
+  MANUAL: 'MANUAL',
+};
+
+export const ALLOWED_CALCULATION_METHODS = Object.values(CALCULATION_METHOD);
