@@ -1,0 +1,60 @@
+/**
+ * Product ESG Profile Module Constants
+ */
+
+export const PROFILE_STATUS = {
+  ACTIVE: 'ACTIVE',
+  INACTIVE: 'INACTIVE',
+};
+
+export const ALLOWED_PROFILE_STATUSES = Object.values(PROFILE_STATUS);
+
+export const MATERIAL_TYPE = {
+  PLASTIC: 'PLASTIC',
+  METAL: 'METAL',
+  WOOD: 'WOOD',
+  GLASS: 'GLASS',
+  PAPER: 'PAPER',
+  TEXTILE: 'TEXTILE',
+  CHEMICAL: 'CHEMICAL',
+  MIXED: 'MIXED',
+  OTHER: 'OTHER',
+};
+
+export const ALLOWED_MATERIAL_TYPES = Object.values(MATERIAL_TYPE);
+
+export const PRODUCT_TYPE = {
+  RAW_MATERIAL: 'RAW_MATERIAL',
+  FINISHED_PRODUCT: 'FINISHED_PRODUCT',
+  SEMI_FINISHED: 'SEMI_FINISHED',
+  SERVICE: 'SERVICE',
+  PACKAGING: 'PACKAGING',
+};
+
+export const ALLOWED_PRODUCT_TYPES = Object.values(PRODUCT_TYPE);
+
+export const LIFECYCLE_STAGE = {
+  RAW: 'RAW',
+  MANUFACTURING: 'MANUFACTURING',
+  TRANSPORT: 'TRANSPORT',
+  WAREHOUSE: 'WAREHOUSE',
+  USE: 'USE',
+  RECYCLE: 'RECYCLE',
+  DISPOSAL: 'DISPOSAL',
+};
+
+export const ALLOWED_LIFECYCLE_STAGES = Object.values(LIFECYCLE_STAGE);
+
+export const WEIGHT_UNIT = {
+  GRAM: 'GRAM',
+  KG: 'KG',
+  TON: 'TON',
+};
+
+export const ALLOWED_WEIGHT_UNITS = Object.values(WEIGHT_UNIT);
+
+export const CARBON_CATEGORY = {
+  LOW: 'LOW',
+  MEDIUM: 'MEDIUM',
+  HIGH: 'HIGH',
+};
