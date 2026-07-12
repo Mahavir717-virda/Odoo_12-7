@@ -1,0 +1,52 @@
+import { Router } from 'express';
+import mongoose from 'mongoose';
+import { ApiResponse } from '../utils/ApiResponse.js';
+import { HTTP_STATUS } from '../utils/constants.js';
+import departmentRouter from '../modules/department/department.route.js';
+import categoryRouter from '../modules/category/category.route.js';
+
+const router = Router();
+
+// Mount modules
+router.use('/departments', departmentRouter);
+router.use('/categories', categoryRouter);
+
+/**
+ * GET /api/v1
+ * Root API Entrypoint
+ */
+router.get('/', (req, res) => {
+  res.status(HTTP_STATUS.OK).json({
+    success: true,
+    message: 'ESG Backend API Running',
+  });
+});
+
+/**
+ * GET /api/v1/health
+ * Health check endpoint showing system metrics, DB connectivity status, and server uptime.
+ */
+router.get('/health', (req, res) => {
+  // Mongoose connection states: 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
+  const dbState = mongoose.connection.readyState;
+  let databaseStatus = 'Disconnected';
+  
+  if (dbState === 1) {
+    databaseStatus = 'Connected';
+  } else if (dbState === 2) {
+    databaseStatus = 'Connecting';
+  } else if (dbState === 3) {
+    databaseStatus = 'Disconnecting';
+  }
+
+  const uptimeSeconds = process.uptime();
+  const uptime = `${Math.floor(uptimeSeconds / 3600)}h ${Math.floor((uptimeSeconds % 3600) / 60)}m ${Math.floor(uptimeSeconds % 60)}s`;
+
+  res.status(HTTP_STATUS.OK).json({
+    status: 'OK',
+    database: databaseStatus,
+    uptime,
+  });
+});
+
+export default router;
