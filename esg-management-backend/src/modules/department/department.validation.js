@@ -20,8 +20,7 @@ export const createDepartmentValidation = [
     .trim(),
   body('head')
     .optional({ nullable: true })
-    .isMongoId()
-    .withMessage('Invalid head user ID format'),
+    .trim(),
   body('parentDepartment')
     .optional({ nullable: true })
     .isMongoId()
@@ -57,8 +56,7 @@ export const updateDepartmentValidation = [
     .trim(),
   body('head')
     .optional({ nullable: true })
-    .isMongoId()
-    .withMessage('Invalid head user ID format'),
+    .trim(),
   body('parentDepartment')
     .optional({ nullable: true })
     .isMongoId()

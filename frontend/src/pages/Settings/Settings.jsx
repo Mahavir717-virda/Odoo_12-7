@@ -30,8 +30,33 @@ export default function Settings() {
     emailAlerts: false
   }));
 
-  const [departments, setDepartments] = useState(() => getStorageItem('db_departments', []));
-  const [categories, setCategories] = useState(() => getStorageItem('db_categories', []));
+  const [departments, setDepartments] = useState([]);
+  const [categories, setCategories] = useState([]);
+
+  const fetchSettingsData = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+
+      const deptRes = await fetch('http://localhost:5000/api/v1/departments', { headers });
+      const deptData = await deptRes.json();
+      if (deptRes.ok) {
+        setDepartments(deptData.data?.results || deptData.data || []);
+      }
+
+      const catRes = await fetch('http://localhost:5000/api/v1/categories', { headers });
+      const catData = await catRes.json();
+      if (catRes.ok) {
+        setCategories(catData.data?.results || catData.data || []);
+      }
+    } catch (err) {
+      console.error('Error fetching settings data:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchSettingsData();
+  }, []);
 
   useEffect(() => {
     if (location.state?.activeSubTab) {
@@ -46,8 +71,7 @@ export default function Settings() {
       autoAwardBadges: false,
       emailAlerts: false
     }));
-    setDepartments(getStorageItem('db_departments', []));
-    setCategories(getStorageItem('db_categories', []));
+    fetchSettingsData();
     recalculateAllScores();
   };
 
@@ -86,46 +110,64 @@ export default function Settings() {
     }
     setDeptModalMode(mode);
     if (deptObj) {
-      setDeptFormData({ ...deptObj });
+      setDeptFormData({
+        _id: deptObj._id,
+        name: deptObj.name,
+        code: deptObj.code,
+        head: deptObj.head,
+        parent: deptObj.parentDepartment?._id || deptObj.parentDepartment || '—',
+        employees: deptObj.employeeCount || deptObj.employees || '50',
+        status: deptObj.status || 'Active'
+      });
     } else {
       setDeptFormData({ name: '', code: '', head: '', parent: '—', employees: '50' });
     }
     setIsDeptModalOpen(true);
   };
 
-  const handleDeptSubmit = (e) => {
+  const handleDeptSubmit = async (e) => {
     e.preventDefault();
     if (!deptFormData.name || !deptFormData.code || !deptFormData.head || !deptFormData.employees) {
       showToast("Please fill in name, code, head, and employee count.", "error");
       return;
     }
 
-    const list = getStorageItem('db_departments', []);
-
-    if (deptModalMode === 'create') {
-      const newDept = {
-        name: deptFormData.name,
-        code: deptFormData.code,
-        head: deptFormData.head,
-        parent: deptFormData.parent,
-        employees: deptFormData.employees,
-        status: "Active"
+    try {
+      const token = localStorage.getItem('token');
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
       };
-      setStorageItem('db_departments', [...list, newDept]);
-      showToast(`Department ${deptFormData.name} registered!`, "success");
-    } else {
-      const updated = list.map(item => {
-        if (item.name === selectedDeptName) {
-          return { ...item, ...deptFormData };
-        }
-        return item;
+
+      const url = deptModalMode === 'create'
+        ? 'http://localhost:5000/api/v1/departments'
+        : `http://localhost:5000/api/v1/departments/${deptFormData._id}`;
+      
+      const method = deptModalMode === 'create' ? 'POST' : 'PUT';
+
+      const response = await fetch(url, {
+        method,
+        headers,
+        body: JSON.stringify({
+          name: deptFormData.name,
+          code: deptFormData.code,
+          head: deptFormData.head,
+          parentDepartment: deptFormData.parent === '—' ? null : deptFormData.parent,
+          employeeCount: parseInt(deptFormData.employees, 10),
+          status: deptFormData.status || 'Active'
+        })
       });
-      setStorageItem('db_departments', updated);
-      showToast(`Department ${deptFormData.name} updated!`, "success");
+
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || 'Department update failed');
+
+      showToast(`Department ${deptFormData.name} ${deptModalMode === 'create' ? 'registered' : 'updated'}!`, "success");
+      setIsDeptModalOpen(false);
+      setSelectedDeptName(null);
+      refreshData();
+    } catch (err) {
+      showToast(err.message, "error");
     }
-    setIsDeptModalOpen(false);
-    setSelectedDeptName(null);
-    refreshData();
   };
 
   const triggerDeleteConfirm = () => {
@@ -136,17 +178,32 @@ export default function Settings() {
     setIsDeleteConfirmOpen(true);
   };
 
-  const handleConfirmDelete = () => {
-    const list = getStorageItem('db_departments', []);
-    const filtered = list.filter(x => x.name !== selectedDeptName);
-    setStorageItem('db_departments', filtered);
-    showToast(`Department ${selectedDeptName} deleted.`, "success");
-    setIsDeleteConfirmOpen(false);
-    setSelectedDeptName(null);
-    refreshData();
+  const handleConfirmDelete = async () => {
+    const deptToDelete = departments.find(x => x.name === selectedDeptName);
+    if (!deptToDelete) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+
+      const response = await fetch(`http://localhost:5000/api/v1/departments/${deptToDelete._id}`, {
+        method: 'DELETE',
+        headers
+      });
+
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || 'Department deletion failed');
+
+      showToast(`Department ${selectedDeptName} deleted.`, "success");
+      setIsDeleteConfirmOpen(false);
+      setSelectedDeptName(null);
+      refreshData();
+    } catch (err) {
+      showToast(err.message, "error");
+    }
   };
 
-  const handleCreateCategory = (e) => {
+  const handleCreateCategory = async (e) => {
     e.preventDefault();
     if (!categoryFormData.name || !categoryFormData.weight) {
       showToast("Please fill in category name and score weight.", "error");
@@ -158,18 +215,33 @@ export default function Settings() {
       return;
     }
 
-    const list = getStorageItem('db_categories', []);
-    const newCat = {
-      id: Date.now(),
-      name: categoryFormData.name,
-      classification: categoryFormData.classification,
-      weight: categoryFormData.weight
-    };
-    setStorageItem('db_categories', [...list, newCat]);
-    showToast("ESG Category created successfully!", "success");
-    setIsCategoryModalOpen(false);
-    setCategoryFormData({ name: '', classification: 'Environmental', weight: '30%' });
-    refreshData();
+    try {
+      const token = localStorage.getItem('token');
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      };
+
+      const response = await fetch('http://localhost:5000/api/v1/categories', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          name: categoryFormData.name,
+          classification: categoryFormData.classification,
+          scoreWeight: parseInt(categoryFormData.weight, 10),
+        })
+      });
+
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || 'Category creation failed');
+
+      showToast("ESG Category created successfully!", "success");
+      setIsCategoryModalOpen(false);
+      setCategoryFormData({ name: '', classification: 'Environmental', weight: '30%' });
+      refreshData();
+    } catch (err) {
+      showToast(err.message, "error");
+    }
   };
 
   const subTabs = ['Departments', 'Categories', 'ESG Configuration', 'Notification Settings'];
@@ -281,9 +353,12 @@ export default function Settings() {
                   <tbody className="divide-y divide-border-sage/40 text-text-primary">
                     {departments.map((dept) => {
                       const isSelected = selectedDeptName === dept.name;
+                      const parentName = dept.parentDepartment?.name || dept.parent || '—';
+                      const employees = dept.employeeCount !== undefined ? dept.employeeCount : (dept.employees || 0);
+
                       return (
                         <tr 
-                          key={dept.name} 
+                          key={dept._id || dept.name} 
                           onClick={() => {
                             if (isAdmin) {
                               setSelectedDeptName(isSelected ? null : dept.name);
@@ -310,17 +385,17 @@ export default function Settings() {
                             {dept.code}
                           </td>
                           <td className="py-4 px-6 text-text-primary font-medium">
-                            {dept.head}
+                            {dept.head?.name || dept.head || '—'}
                           </td>
-                          <td className={`py-4 px-6 ${dept.parent === '—' ? 'text-text-secondary/40' : 'text-text-secondary'}`}>
-                            {dept.parent}
+                          <td className={`py-4 px-6 ${parentName === '—' ? 'text-text-secondary/40' : 'text-text-secondary'}`}>
+                            {parentName}
                           </td>
                           <td className="py-4 px-6 font-mono font-bold text-text-primary">
-                            {dept.employees}
+                            {employees}
                           </td>
                           <td className="py-4 px-6">
                             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-accent-env/10 text-accent-env border border-accent-env/20">
-                              {dept.status}
+                              {dept.status || 'Active'}
                             </span>
                           </td>
                         </tr>
@@ -366,10 +441,12 @@ export default function Settings() {
                 </thead>
                 <tbody className="divide-y divide-border-sage/40 text-text-primary">
                   {categories.map(c => (
-                    <tr key={c.id} className="hover:bg-bg-base/20 transition-colors">
+                    <tr key={c._id || c.id} className="hover:bg-bg-base/20 transition-colors">
                       <td className="py-4 px-6 font-bold text-text-primary font-display">{c.name}</td>
                       <td className="py-4 px-6 font-semibold text-text-secondary">{c.classification}</td>
-                      <td className="py-4 px-6 text-right font-mono text-accent-env font-bold">{c.weight}</td>
+                      <td className="py-4 px-6 text-right font-mono text-accent-env font-bold">
+                        {c.scoreWeight !== undefined ? `${c.scoreWeight}%` : (c.weight || '30%')}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -518,8 +595,8 @@ export default function Settings() {
                 className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary focus:outline-none focus:border-text-primary"
               >
                 <option value="—">None (Top-Level)</option>
-                {departments.map(d => (
-                  <option key={d.name} value={d.name}>{d.name}</option>
+                {departments.filter(d => d._id !== deptFormData._id).map(d => (
+                  <option key={d._id} value={d._id}>{d.name}</option>
                 ))}
               </select>
             </div>

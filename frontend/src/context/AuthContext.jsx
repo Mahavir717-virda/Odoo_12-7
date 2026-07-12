@@ -4,6 +4,7 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [notifications, setNotifications] = useState([
     { id: 1, type: 'info', message: 'Welcome to EcoSphere ESG Platform!', date: new Date().toISOString().split('T')[0], read: false }
   ]);
@@ -24,6 +25,7 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     const checkAuth = async () => {
+      setLoading(true);
       const token = localStorage.getItem('token');
       const mockUserStr = localStorage.getItem('mock_user');
       if (token) {
@@ -34,12 +36,14 @@ export function AuthProvider({ children }) {
           const result = await response.json();
           if (response.ok) {
             setUser(result.data);
+            setLoading(false);
             return;
           }
         } catch (err) {
           // If server is offline, fall back to mock user
           if (mockUserStr) {
             setUser(JSON.parse(mockUserStr));
+            setLoading(false);
             return;
           }
         }
@@ -48,6 +52,7 @@ export function AuthProvider({ children }) {
       if (mockUserStr) {
         setUser(JSON.parse(mockUserStr));
       }
+      setLoading(false);
     };
     checkAuth();
   }, []);
@@ -245,6 +250,7 @@ export function AuthProvider({ children }) {
   return (
     <AuthContext.Provider value={{ 
       user, 
+      loading,
       isAuthenticated, 
       login, 
       signup, 

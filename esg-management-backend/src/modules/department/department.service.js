@@ -1,10 +1,41 @@
 import { DepartmentRepository } from './department.repository.js';
 import { ApiError } from '../../utils/ApiError.js';
 import { HTTP_STATUS } from '../../utils/constants.js';
+import mongoose from 'mongoose';
 
 const departmentRepository = new DepartmentRepository();
 
 export class DepartmentService {
+  /**
+   * Helper to resolve a head user ID from a name or ObjectID
+   */
+  async resolveHeadId(head) {
+    if (!head) return null;
+    if (mongoose.Types.ObjectId.isValid(head)) {
+      return head;
+    }
+
+    const User = mongoose.model('User');
+    const user = await User.findOne({ name: new RegExp(`^${head.trim()}$`, 'i') });
+    if (user) {
+      return user._id;
+    }
+
+    try {
+      const email = `${head.replace(/\s+/g, '_').toLowerCase()}@company.com`;
+      // Create user stub
+      const newUser = await User.create({
+        name: head,
+        email,
+        password: 'stubpassword123',
+        role: 'Employee'
+      });
+      return newUser._id;
+    } catch (err) {
+      return null;
+    }
+  }
+
   /**
    * Create a department
    * @param {object} departmentData 
@@ -30,6 +61,9 @@ export class DepartmentService {
         throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'Parent department not found');
       }
     }
+
+    // Resolve head user ID
+    departmentData.head = await this.resolveHeadId(departmentData.head);
 
     return await departmentRepository.create(departmentData);
   }
@@ -107,6 +141,11 @@ export class DepartmentService {
       if (!parent) {
         throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'Parent department not found');
       }
+    }
+
+    // Resolve head user ID
+    if (updateBody.head !== undefined) {
+      updateBody.head = await this.resolveHeadId(updateBody.head);
     }
 
     return await departmentRepository.update(id, updateBody);
