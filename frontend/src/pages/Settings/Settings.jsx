@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import { 
   Plus, 
   Pencil, 
@@ -9,7 +10,10 @@ import {
 
 export default function Settings() {
   const location = useLocation();
+  const { user } = useAuth();
   const [activeSubTab, setActiveSubTab] = useState('Departments');
+
+  const isAdmin = user?.role === 'Admin';
 
   useEffect(() => {
     if (location.state?.activeSubTab) {
@@ -25,6 +29,7 @@ export default function Settings() {
   });
 
   const toggleHandler = (key) => {
+    if (!isAdmin) return;
     setToggles(prev => ({
       ...prev,
       [key]: !prev[key]
@@ -74,25 +79,47 @@ export default function Settings() {
               </div>
 
               <div className="flex items-center space-x-2.5">
-                <button 
-                  onClick={() => console.log('New Department clicked')}
-                  className="flex items-center space-x-1.5 px-3.5 py-2 bg-white hover:bg-gray-100 text-black font-bold text-xs rounded-lg transition-all duration-150 active:scale-[0.98]"
-                >
-                  <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                  <span>New Department</span>
-                </button>
+                <div className="flex items-center space-x-2">
+                  <button 
+                    disabled={!isAdmin}
+                    onClick={() => console.log('New Department clicked')}
+                    className={`flex items-center space-x-1.5 px-3.5 py-2 bg-white text-black font-bold text-xs rounded-lg transition-all duration-150 ${
+                      isAdmin 
+                        ? 'hover:bg-gray-100 active:scale-[0.98]' 
+                        : 'opacity-40 cursor-not-allowed'
+                    }`}
+                  >
+                    <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                    <span>New Department</span>
+                  </button>
+                  {!isAdmin && (
+                    <span className="text-[10px] text-gray-500 font-semibold bg-gray-800/40 px-2 py-1 rounded border border-gray-800/60">
+                      Admin access required
+                    </span>
+                  )}
+                </div>
                 
                 <button 
+                  disabled={!isAdmin}
                   onClick={() => console.log('Edit clicked')}
-                  className="flex items-center space-x-1.5 px-3.5 py-2 bg-transparent border border-[#F59E0B]/40 hover:border-[#F59E0B] text-[#F59E0B] font-semibold text-xs rounded-lg transition-all duration-150 active:scale-[0.98]"
+                  className={`flex items-center space-x-1.5 px-3.5 py-2 bg-transparent border border-[#F59E0B]/40 text-[#F59E0B] font-semibold text-xs rounded-lg transition-all duration-150 ${
+                    isAdmin 
+                      ? 'hover:border-[#F59E0B] hover:bg-gray-800/40 active:scale-[0.98]' 
+                      : 'opacity-30 cursor-not-allowed'
+                  }`}
                 >
                   <Pencil className="w-3.5 h-3.5" />
                   <span>Edit</span>
                 </button>
 
                 <button 
+                  disabled={!isAdmin}
                   onClick={() => console.log('Delete clicked')}
-                  className="flex items-center space-x-1.5 px-3.5 py-2 bg-transparent border border-[#EF4444]/40 hover:border-[#EF4444] text-[#EF4444] font-semibold text-xs rounded-lg transition-all duration-150 active:scale-[0.98]"
+                  className={`flex items-center space-x-1.5 px-3.5 py-2 bg-transparent border border-[#EF4444]/40 text-[#EF4444] font-semibold text-xs rounded-lg transition-all duration-150 ${
+                    isAdmin 
+                      ? 'hover:border-[#EF4444] hover:bg-red-950/20 active:scale-[0.98]' 
+                      : 'opacity-30 cursor-not-allowed'
+                  }`}
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   <span>Delete</span>
@@ -150,11 +177,18 @@ export default function Settings() {
 
         {(activeSubTab === 'ESG Configuration' || activeSubTab === 'Notification Settings') && (
           <section className="bg-[#11161D] border border-gray-800/80 rounded-2xl p-6 space-y-6">
-            <div className="flex items-center space-x-2.5">
-              <Settings2 className="w-5 h-5 text-gray-400" />
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider">
-                {activeSubTab === 'ESG Configuration' ? 'ESG Configuration' : 'Notification Settings'}
-              </h3>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2.5">
+                <Settings2 className="w-5 h-5 text-gray-400" />
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                  {activeSubTab === 'ESG Configuration' ? 'ESG Configuration' : 'Notification Settings'}
+                </h3>
+              </div>
+              {!isAdmin && (
+                <span className="text-[10px] text-gray-500 font-semibold bg-gray-800/40 px-2.5 py-1 rounded border border-gray-800/60">
+                  Admin access required to modify settings
+                </span>
+              )}
             </div>
 
             <div className="divide-y divide-gray-800/60">
@@ -163,10 +197,11 @@ export default function Settings() {
                   <div className="flex items-center justify-between py-4">
                     <span className="text-xs font-semibold text-gray-300">Enable auto emission calculation</span>
                     <button 
+                      disabled={!isAdmin}
                       onClick={() => toggleHandler('autoEmission')}
-                      className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-300 focus:outline-none ${
+                      className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors duration-300 focus:outline-none ${
                         toggles.autoEmission ? 'bg-[#22C55E]' : 'bg-gray-800'
-                      }`}
+                      } ${!isAdmin ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
                     >
                       <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-300 ${
                         toggles.autoEmission ? 'translate-x-5' : 'translate-x-0'
@@ -177,10 +212,11 @@ export default function Settings() {
                   <div className="flex items-center justify-between py-4">
                     <span className="text-xs font-semibold text-gray-300">Require evidence for all CSR activities</span>
                     <button 
+                      disabled={!isAdmin}
                       onClick={() => toggleHandler('requireEvidence')}
-                      className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-300 focus:outline-none ${
+                      className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors duration-300 focus:outline-none ${
                         toggles.requireEvidence ? 'bg-[#22C55E]' : 'bg-gray-800'
-                      }`}
+                      } ${!isAdmin ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
                     >
                       <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-300 ${
                         toggles.requireEvidence ? 'translate-x-5' : 'translate-x-0'
@@ -191,10 +227,11 @@ export default function Settings() {
                   <div className="flex items-center justify-between py-4">
                     <span className="text-xs font-semibold text-gray-300">Auto-award badges on challenge completion</span>
                     <button 
+                      disabled={!isAdmin}
                       onClick={() => toggleHandler('autoAwardBadges')}
-                      className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-300 focus:outline-none ${
+                      className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors duration-300 focus:outline-none ${
                         toggles.autoAwardBadges ? 'bg-[#22C55E]' : 'bg-gray-800'
-                      }`}
+                      } ${!isAdmin ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
                     >
                       <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-300 ${
                         toggles.autoAwardBadges ? 'translate-x-5' : 'translate-x-0'
@@ -208,10 +245,11 @@ export default function Settings() {
                 <div className="flex items-center justify-between py-4">
                   <span className="text-xs font-semibold text-gray-300">Email alerts for new compliance issues</span>
                   <button 
+                    disabled={!isAdmin}
                     onClick={() => toggleHandler('emailAlerts')}
-                    className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-300 focus:outline-none ${
+                    className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors duration-300 focus:outline-none ${
                       toggles.emailAlerts ? 'bg-[#22C55E]' : 'bg-gray-800'
-                    }`}
+                    } ${!isAdmin ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
                   >
                     <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-300 ${
                       toggles.emailAlerts ? 'translate-x-5' : 'translate-x-0'

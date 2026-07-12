@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import { 
   Plus, 
   Download, 
@@ -10,7 +11,10 @@ import {
 
 export default function Governance() {
   const location = useLocation();
+  const { user } = useAuth();
   const [activeSubTab, setActiveSubTab] = useState('Audits');
+
+  const isAdmin = user?.role === 'Admin';
 
   useEffect(() => {
     if (location.state?.activeSubTab) {
@@ -95,13 +99,25 @@ export default function Governance() {
               </div>
               
               <div className="flex items-center space-x-2.5">
-                <button 
-                  onClick={() => console.log('New Audit clicked')}
-                  className="flex items-center space-x-1.5 px-3.5 py-2 bg-[#A855F7] hover:bg-[#9333EA] text-white font-bold text-xs rounded-lg transition-all duration-150 active:scale-[0.98]"
-                >
-                  <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                  <span>New Audit</span>
-                </button>
+                <div className="flex items-center space-x-2">
+                  <button 
+                    disabled={!isAdmin}
+                    onClick={() => console.log('New Audit clicked')}
+                    className={`flex items-center space-x-1.5 px-3.5 py-2 bg-[#A855F7] text-white font-bold text-xs rounded-lg transition-all duration-150 ${
+                      isAdmin 
+                        ? 'hover:bg-[#9333EA] active:scale-[0.98]' 
+                        : 'opacity-40 cursor-not-allowed'
+                    }`}
+                  >
+                    <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                    <span>New Audit</span>
+                  </button>
+                  {!isAdmin && (
+                    <span className="text-[10px] text-gray-500 font-semibold bg-gray-800/40 px-2 py-1 rounded border border-gray-800/60">
+                      Admin access required
+                    </span>
+                  )}
+                </div>
                 
                 <button 
                   onClick={() => console.log('Export Audits clicked')}
