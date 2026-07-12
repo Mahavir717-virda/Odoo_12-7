@@ -20,7 +20,14 @@ server = app.listen(config.port, () => {
 // Setup error logging handlers for unhandled rejections and uncaught exceptions
 const exitHandler = () => {
   if (server) {
+    const forceExitTimeout = setTimeout(() => {
+      logger.info('Graceful shutdown timed out, force exiting...');
+      process.exit(1);
+    }, 1000);
+    forceExitTimeout.unref();
+
     server.close(() => {
+      clearTimeout(forceExitTimeout);
       logger.info('Server closed');
       process.exit(1);
     });
