@@ -6,8 +6,11 @@ import departmentRouter from '../modules/department/department.route.js';
 import categoryRouter from '../modules/category/category.route.js';
 import emissionFactorRouter from '../modules/emission-factor/emissionFactor.route.js';
 import productESGProfileRouter from '../modules/product-esg-profile/productESGProfile.route.js';
+import carbonTransactionRouter from '../modules/carbon-transaction/carbonTransaction.route.js';
+import dropdownRouter from '../modules/dropdown/dropdown.route.js';
 import csrRouter from '../modules/csr/csr.route.js';
 import participationRouter from '../modules/participation/participation.route.js';
+import goalRouter from '../modules/sustainability-goal/goal.route.js';
 
 const router = Router();
 
@@ -16,8 +19,9 @@ router.use('/departments', departmentRouter);
 router.use('/categories', categoryRouter);
 router.use('/emission-factors', emissionFactorRouter);
 router.use('/product-esg-profiles', productESGProfileRouter);
-router.use('/csr', csrRouter);
-router.use('/participations', participationRouter);
+router.use('/carbon-transactions', carbonTransactionRouter);
+router.use('/dropdowns', dropdownRouter);
+router.use('/sustainability-goals', goalRouter);
 
 /**
  * GET /api/v1

@@ -1,0 +1,42 @@
+/**
+ * Sustainability Goal Module Constants
+ */
+
+export const GOAL_TYPE = {
+  CARBON_REDUCTION: 'CARBON_REDUCTION',
+  ENERGY_REDUCTION: 'ENERGY_REDUCTION',
+  WASTE_REDUCTION: 'WASTE_REDUCTION',
+  WATER_SAVING: 'WATER_SAVING',
+  RECYCLING: 'RECYCLING',
+  GENERAL: 'GENERAL',
+};
+
+export const ALLOWED_GOAL_TYPES = Object.values(GOAL_TYPE);
+
+export const GOAL_PRIORITY = {
+  LOW: 'LOW',
+  MEDIUM: 'MEDIUM',
+  HIGH: 'HIGH',
+  CRITICAL: 'CRITICAL',
+};
+
+export const ALLOWED_GOAL_PRIORITIES = Object.values(GOAL_PRIORITY);
+
+export const GOAL_STATUS = {
+  DRAFT: 'DRAFT',
+  ACTIVE: 'ACTIVE',
+  COMPLETED: 'COMPLETED',
+  FAILED: 'FAILED',
+  ARCHIVED: 'ARCHIVED',
+};
+
+export const ALLOWED_GOAL_STATUSES = Object.values(GOAL_STATUS);
+
+export const ACHIEVEMENT_STATUS = {
+  ON_TRACK: 'ON_TRACK',
+  AT_RISK: 'AT_RISK',
+  ACHIEVED: 'ACHIEVED',
+  MISSED: 'MISSED',
+};
+
+export const ALLOWED_ACHIEVEMENT_STATUSES = Object.values(ACHIEVEMENT_STATUS);
