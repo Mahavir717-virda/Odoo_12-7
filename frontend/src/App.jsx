@@ -30,12 +30,26 @@ function App() {
             <Route element={<ProtectedRoute />}>
               <Route element={<Layout />}>
                 <Route path="/" element={<Dashboard />} />
-                <Route path="/environmental" element={<Environmental />} />
+                
+                {/* Environmental Route - Accessible by all roles except Employee */}
+                <Route element={<ProtectedRoute allowedRoles={['Admin', 'Sustainability Team', 'Manager', 'Compliance Team', 'HR']} />}>
+                  <Route path="/environmental" element={<Environmental />} />
+                </Route>
+
+                {/* Social, Governance and Gamification - Accessible by everyone */}
                 <Route path="/social" element={<Social />} />
                 <Route path="/governance" element={<Governance />} />
                 <Route path="/gamification" element={<Gamification />} />
-                <Route path="/reports" element={<Reports />} />
-                <Route path="/settings" element={<Settings />} />
+                
+                {/* Reports Route - Accessible by all roles except Employee */}
+                <Route element={<ProtectedRoute allowedRoles={['Admin', 'Sustainability Team', 'Compliance Team', 'HR', 'Manager']} />}>
+                  <Route path="/reports" element={<Reports />} />
+                </Route>
+
+                {/* Settings Route - Restricted to Admin only */}
+                <Route element={<ProtectedRoute allowedRoles={['Admin']} />}>
+                  <Route path="/settings" element={<Settings />} />
+                </Route>
               </Route>
             </Route>
           </Routes>

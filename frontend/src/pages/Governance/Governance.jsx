@@ -1,95 +1,41 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
+import { TERMS } from '../../constants/terminology';
+import { 
+  getStorageItem, 
+  setStorageItem, 
+  recalculateAllScores 
+} from '../../utils/storage';
+import { isIssueOverdue } from '../../utils/calculations';
 import Modal from '../../components/Modal';
 import { 
   Plus, 
   Download, 
   ChevronDown, 
-  ShieldAlert, 
+  Search, 
+  Eye,
+  ShieldAlert,
   AlertTriangle,
-  Eye
+  Lock,
+  Calendar
 } from 'lucide-react';
 
 export default function Governance() {
   const location = useLocation();
-  const { user } = useAuth();
   const { showToast } = useToast();
-  const [activeSubTab, setActiveSubTab] = useState('Audits');
-
-  const isAdmin = user?.role === 'Admin';
+  const { user, canEdit, canApprove, createNotification } = useAuth();
+  
+  const [activeSubTab, setActiveSubTab] = useState('Policies');
+  const [isExportOpen, setIsExportOpen] = useState(false);
   const exportRef = useRef(null);
 
-  // States
-  const [isExportOpen, setIsExportOpen] = useState(false);
-
-  // --- STATE DATA SEEDS ---
-  const [audits, setAudits] = useState([
-    {
-      id: 1,
-      title: "Q2 Waste Audit",
-      department: "Manufacturing",
-      auditor: "S. Nair",
-      date: "2026-06-12",
-      findings: "3 minor issues",
-      status: "Completed"
-    },
-    {
-      id: 2,
-      title: "Vendor Compliance Check",
-      department: "Procurement",
-      auditor: "R. Iyer",
-      date: "2026-07-01",
-      findings: "1 open issue",
-      status: "Under Review"
-    }
-  ]);
-
-  const [complianceIssues, setComplianceIssues] = useState([
-    {
-      id: 1,
-      issue: "Missing MSDS sheets",
-      severity: "High",
-      department: "Manufacturing",
-      status: "Open",
-      owner: "Deep Pathak",
-      dueDate: "2026-08-15"
-    },
-    {
-      id: 2,
-      issue: "Late vendor disclosure",
-      severity: "Medium",
-      department: "Procurement",
-      status: "Resolved",
-      owner: "Karan Shah",
-      dueDate: "2026-07-30"
-    }
-  ]);
-
-  const [policies, setPolicies] = useState([
-    { id: 1, name: "Anti-Bribery Policy", version: "v2.1", date: "2026-01-10", category: "Ethics", activeCount: "142 employees" },
-    { id: 2, name: "Whistleblower Protection", version: "v1.4", date: "2025-11-05", category: "Safety", activeCount: "135 employees" },
-    { id: 3, name: "Conflict of Interest Policy", version: "v3.0", date: "2026-03-22", category: "Disclosure", activeCount: "140 employees" }
-  ]);
-
-  const [acknowledgements, setAcknowledgements] = useState([
-    { id: 1, employee: "Aditi Rao", policy: "Anti-Bribery Policy", date: "2026-07-05", method: "E-Sign" },
-    { id: 2, employee: "Karan Shah", policy: "Conflict of Interest Policy", date: "2026-07-02", method: "ID Verification" }
-  ]);
-
-  // --- MODALS STATE ---
-  const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
-  const [auditFormData, setAuditFormData] = useState({ title: '', department: 'Manufacturing', auditor: '', date: '', findings: '' });
-
-  const [isIssueModalOpen, setIsIssueModalOpen] = useState(false);
-  const [selectedIssue, setSelectedIssue] = useState(null);
-
-  const [isPolicyModalOpen, setIsPolicyModalOpen] = useState(false);
-  const [policyFormData, setPolicyFormData] = useState({ name: '', version: 'v1.0', category: 'Ethics' });
-
-  const [isAckModalOpen, setIsAckModalOpen] = useState(false);
-  const [ackFormData, setAckFormData] = useState({ employee: '', policy: 'Anti-Bribery Policy' });
+  // Sync state with localStorage
+  const [policies, setPolicies] = useState(() => getStorageItem('db_policies', []));
+  const [acknowledgements, setAcknowledgements] = useState(() => getStorageItem('db_policy_acks', []));
+  const [audits, setAudits] = useState(() => getStorageItem('db_audits', []));
+  const [complianceIssues, setComplianceIssues] = useState(() => getStorageItem('db_compliance_issues', []));
 
   useEffect(() => {
     if (location.state?.activeSubTab) {
@@ -97,7 +43,6 @@ export default function Governance() {
     }
   }, [location.state]);
 
-  // Close dropdown on outside click
   useEffect(() => {
     function handleClickOutside(e) {
       if (exportRef.current && !exportRef.current.contains(e.target)) {
@@ -108,11 +53,35 @@ export default function Governance() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // --- ACTIONS HANDLERS ---
+  const refreshData = () => {
+    setPolicies(getStorageItem('db_policies', []));
+    setAcknowledgements(getStorageItem('db_policy_acks', []));
+    setAudits(getStorageItem('db_audits', []));
+    setComplianceIssues(getStorageItem('db_compliance_issues', []));
+    recalculateAllScores();
+  };
+
+  // Modals state
+  const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
+  const [auditFormData, setAuditFormData] = useState({ title: '', department: 'Manufacturing', auditor: '', date: '', findings: '' });
+
+  const [isIssueModalOpen, setIsIssueModalOpen] = useState(false);
+  const [selectedIssue, setSelectedIssue] = useState(null);
+
+  // New compliance issue modal
+  const [isNewIssueModalOpen, setIsNewIssueModalOpen] = useState(false);
+  const [newIssueFormData, setNewIssueFormData] = useState({ title: '', severity: 'Medium', department: 'Manufacturing', dueDate: '', assignee: '' });
+
+  const [isPolicyModalOpen, setIsPolicyModalOpen] = useState(false);
+  const [policyFormData, setPolicyFormData] = useState({ name: '', desc: '', version: 'v1.0', category: 'Ethics', targetAcks: 200 });
+
+  const [isAckModalOpen, setIsAckModalOpen] = useState(false);
+  const [ackFormData, setAckFormData] = useState({ employee: '', policy: 'Code of Supplier Conduct' });
+
   const handleExport = (fmt) => {
-    showToast(`Generating ${fmt} export of audit logs...`, "info");
+    showToast(`Generating ${fmt} export of governance logs...`, "info");
     setTimeout(() => {
-      showToast(`Exported audits successfully as ${fmt}!`, "success");
+      showToast(`Exported successfully as ${fmt}!`, "success");
       setIsExportOpen(false);
     }, 900);
   };
@@ -120,18 +89,31 @@ export default function Governance() {
   const handleAuditSubmit = (e) => {
     e.preventDefault();
     if (!auditFormData.title || !auditFormData.auditor || !auditFormData.date) {
-      showToast("Please fill in title, lead auditor, and date.", "error");
+      showToast("Please fill in title, auditor, and date.", "error");
       return;
     }
+
+    if (!canEdit('governance')) {
+      showToast("You do not have permission to log audits.", "error");
+      return;
+    }
+
+    const list = getStorageItem('db_audits', []);
     const newAudit = {
       id: Date.now(),
-      ...auditFormData,
+      name: auditFormData.title,
+      auditor: auditFormData.auditor,
+      date: auditFormData.date,
+      findings: parseInt(auditFormData.findings) || 0,
       status: "Under Review"
     };
-    setAudits([newAudit, ...audits]);
-    showToast("Audit conducted and logged under review.", "success");
+
+    setStorageItem('db_audits', [newAudit, ...list]);
+    createNotification('all', 'info', `New audit logged: ${newAudit.name}`);
+    showToast("Audit conducted and logged successfully.", "success");
     setIsAuditModalOpen(false);
     setAuditFormData({ title: '', department: 'Manufacturing', auditor: '', date: '', findings: '' });
+    refreshData();
   };
 
   const handleOpenIssue = (issue) => {
@@ -141,15 +123,56 @@ export default function Governance() {
 
   const handleResolveIssue = () => {
     if (!selectedIssue) return;
-    setComplianceIssues(complianceIssues.map(item => {
+    if (!canApprove('governance')) {
+      showToast("You do not have permission to resolve compliance issues.", "error");
+      return;
+    }
+
+    const list = getStorageItem('db_compliance_issues', []);
+    const updated = list.map(item => {
       if (item.id === selectedIssue.id) {
         return { ...item, status: 'Resolved' };
       }
       return item;
-    }));
+    });
+
+    setStorageItem('db_compliance_issues', updated);
+    createNotification('all', 'success', `Compliance issue Resolved: ${selectedIssue.title}`);
     showToast("Compliance issue marked as Resolved.", "success");
     setIsIssueModalOpen(false);
     setSelectedIssue(null);
+    refreshData();
+  };
+
+  const handleNewIssueSubmit = (e) => {
+    e.preventDefault();
+    if (!newIssueFormData.title || !newIssueFormData.dueDate) {
+      showToast("Please fill in title and due date.", "error");
+      return;
+    }
+
+    if (!canEdit('governance')) {
+      showToast("You do not have permission to file compliance issues.", "error");
+      return;
+    }
+
+    const list = getStorageItem('db_compliance_issues', []);
+    const newIssue = {
+      id: Date.now(),
+      title: newIssueFormData.title,
+      severity: newIssueFormData.severity,
+      department: newIssueFormData.department,
+      dueDate: newIssueFormData.dueDate,
+      status: "Open",
+      assignee: newIssueFormData.assignee || "Unassigned"
+    };
+
+    setStorageItem('db_compliance_issues', [...list, newIssue]);
+    createNotification('all', 'warning', `New Compliance Issue filed: ${newIssue.title}`);
+    showToast("Compliance issue filed successfully!", "success");
+    setIsNewIssueModalOpen(false);
+    setNewIssueFormData({ title: '', severity: 'Medium', department: 'Manufacturing', dueDate: '', assignee: '' });
+    refreshData();
   };
 
   const handlePolicySubmit = (e) => {
@@ -158,16 +181,29 @@ export default function Governance() {
       showToast("Policy name is required.", "error");
       return;
     }
+
+    if (!canEdit('governance')) {
+      showToast("You do not have permission to publish policies.", "error");
+      return;
+    }
+
+    const list = getStorageItem('db_policies', []);
     const newPol = {
       id: Date.now(),
-      ...policyFormData,
-      date: new Date().toISOString().split('T')[0],
-      activeCount: "0 employees"
+      name: policyFormData.name,
+      desc: policyFormData.desc || "Corporate Governance Policy standard guidelines.",
+      effectiveDate: new Date().toISOString().split('T')[0],
+      targetAcks: parseInt(policyFormData.targetAcks) || 200,
+      currentAcks: 0,
+      status: "Active"
     };
-    setPolicies([...policies, newPol]);
-    showToast("Corporate Policy created!", "success");
+
+    setStorageItem('db_policies', [...list, newPol]);
+    createNotification('all', 'info', `New ESG Policy Formulated: ${newPol.name}`);
+    showToast("Corporate Policy formulated successfully!", "success");
     setIsPolicyModalOpen(false);
-    setPolicyFormData({ name: '', version: 'v1.0', category: 'Ethics' });
+    setPolicyFormData({ name: '', desc: '', version: 'v1.0', category: 'Ethics', targetAcks: 200 });
+    refreshData();
   };
 
   const handleAckSubmit = (e) => {
@@ -176,16 +212,32 @@ export default function Governance() {
       showToast("Employee name is required.", "error");
       return;
     }
+
+    const list = getStorageItem('db_policy_acks', []);
     const newAck = {
       id: Date.now(),
-      ...ackFormData,
-      date: new Date().toISOString().split('T')[0],
-      method: "E-Sign"
+      employee: ackFormData.employee,
+      department: user?.department || "Corporate",
+      policy: ackFormData.policy,
+      ackDate: new Date().toISOString().split('T')[0]
     };
-    setAcknowledgements([newAck, ...acknowledgements]);
-    showToast("Acknowledgement logged!", "success");
+
+    setStorageItem('db_policy_acks', [newAck, ...list]);
+
+    // Increment acknowledgment count on policy
+    const policyList = getStorageItem('db_policies', []);
+    const updatedPolicies = policyList.map(pol => {
+      if (pol.name === ackFormData.policy) {
+        return { ...pol, currentAcks: (pol.currentAcks || 0) + 1 };
+      }
+      return pol;
+    });
+    setStorageItem('db_policies', updatedPolicies);
+
+    createNotification(user?.id, 'success', `Acknowledged policy: ${ackFormData.policy}`);
+    showToast("Acknowledgement logged successfully!", "success");
     setIsAckModalOpen(false);
-    setAckFormData({ employee: '', policy: 'Anti-Bribery Policy' });
+    refreshData();
   };
 
   const subTabs = ['Policies', 'Policy Acknowledgements', 'Audits', 'Compliance Issues'];
@@ -222,28 +274,26 @@ export default function Governance() {
           <section className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <h2 className="text-xl font-bold font-display text-text-primary tracking-tight">Audits Log</h2>
+                <h2 className="text-xl font-bold font-display text-text-primary tracking-tight">Governance Audits</h2>
                 <p className="text-xs text-text-secondary mt-1 font-medium">Review internal and vendor compliance audits conducted by certified auditors.</p>
               </div>
               
               <div className="flex items-center space-x-2.5">
-                <button 
-                  disabled={!isAdmin}
-                  onClick={() => setIsAuditModalOpen(true)}
-                  className={`flex items-center space-x-1.5 px-3.5 py-2 bg-gradient-to-r from-accent-gov to-purple-600 text-bg-base font-extrabold text-xs rounded-lg transition-all shadow-md shadow-accent-gov/5 ${
-                    isAdmin 
-                      ? 'hover:brightness-110 active:scale-[0.98] cursor-pointer' 
-                      : 'opacity-40 cursor-not-allowed'
-                  }`}
-                >
-                  <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                  <span className="uppercase tracking-wider">New Audit</span>
-                </button>
-                {!isAdmin && (
-                  <span className="text-[9px] text-text-secondary font-bold bg-bg-card border border-border-sage px-2 py-1 rounded-full uppercase tracking-wider">
-                    Admin Access Required
-                  </span>
-                )}
+                <div>
+                  <button 
+                    onClick={() => { if (canEdit('governance')) setIsAuditModalOpen(true); }}
+                    disabled={!canEdit('governance')}
+                    className={`flex items-center space-x-1.5 px-3.5 py-2 bg-gradient-to-r from-accent-gov to-purple-600 text-bg-base font-extrabold text-xs rounded-lg transition-all shadow-md shadow-accent-gov/5 cursor-pointer ${
+                      !canEdit('governance') ? 'opacity-40 cursor-not-allowed filter grayscale' : 'hover:brightness-110 active:scale-[0.98]'
+                    }`}
+                  >
+                    <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                    <span className="uppercase tracking-wider">New Audit</span>
+                  </button>
+                  {!canEdit('governance') && (
+                    <p className="text-[10px] text-text-secondary/70 mt-1 font-bold">Requires Compliance Team access</p>
+                  )}
+                </div>
                 
                 {/* Export Dropdown */}
                 <div className="relative" ref={exportRef}>
@@ -278,10 +328,9 @@ export default function Governance() {
                   <thead>
                     <tr className="bg-bg-card/85 border-b border-border-sage text-[10px] font-bold text-text-secondary uppercase tracking-wider font-display">
                       <th className="py-4 px-6">Title</th>
-                      <th className="py-4 px-6">Department</th>
-                      <th className="py-4 px-6">Auditor</th>
+                      <th className="py-4 px-6">Auditor / Firm</th>
                       <th className="py-4 px-6">Date</th>
-                      <th className="py-4 px-6">Findings</th>
+                      <th className="py-4 px-6 text-right">Findings Count</th>
                       <th className="py-4 px-6">Status</th>
                     </tr>
                   </thead>
@@ -290,17 +339,14 @@ export default function Governance() {
                       let badgeStyle = "";
                       if (audit.status === "Completed") {
                         badgeStyle = "bg-accent-env/10 text-accent-env border border-accent-env/20";
-                      } else if (audit.status === "Under Review") {
+                      } else {
                         badgeStyle = "bg-accent-gov/10 text-accent-gov border border-accent-gov/20";
                       }
 
                       return (
                         <tr key={audit.id} className="hover:bg-bg-base/30 transition-colors duration-150 group">
                           <td className="py-4 px-6 font-bold text-text-primary group-hover:text-accent-gov transition-colors font-display">
-                            {audit.title}
-                          </td>
-                          <td className="py-4 px-6 text-text-secondary font-semibold">
-                            {audit.department}
+                            {audit.name}
                           </td>
                           <td className="py-4 px-6 text-text-primary font-medium">
                             {audit.auditor}
@@ -308,8 +354,8 @@ export default function Governance() {
                           <td className="py-4 px-6 text-text-secondary font-mono">
                             {audit.date}
                           </td>
-                          <td className="py-4 px-6 text-text-primary font-medium">
-                            {audit.findings}
+                          <td className="py-4 px-6 text-right text-text-primary font-bold font-mono">
+                            {audit.findings} findings
                           </td>
                           <td className="py-4 px-6">
                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${badgeStyle}`}>
@@ -329,9 +375,27 @@ export default function Governance() {
         {/* --- COMPLIANCE ISSUES SUB-TAB --- */}
         {activeSubTab === 'Compliance Issues' && (
           <section className="space-y-4">
-            <div className="flex items-center space-x-2 text-[10px] font-extrabold text-text-secondary uppercase tracking-wider pl-1 font-display">
-              <ShieldAlert className="w-4 h-4 text-accent-gov" />
-              <span>Compliance Issues Raised from Audits (Click row to inspect)</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2 text-[10px] font-extrabold text-text-secondary uppercase tracking-wider pl-1 font-display">
+                <ShieldAlert className="w-4 h-4 text-accent-gov" />
+                <span>Compliance Issues (Click row to inspect)</span>
+              </div>
+              
+              <div>
+                <button 
+                  onClick={() => { if (canEdit('governance')) setIsNewIssueModalOpen(true); }}
+                  disabled={!canEdit('governance')}
+                  className={`flex items-center space-x-1.5 px-3.5 py-2 bg-gradient-to-r from-accent-gov to-purple-600 text-bg-base font-extrabold text-xs rounded-lg transition-all shadow-md shadow-accent-gov/5 cursor-pointer ${
+                    !canEdit('governance') ? 'opacity-40 cursor-not-allowed filter grayscale' : 'hover:brightness-110 active:scale-[0.98]'
+                  }`}
+                >
+                  <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                  <span className="uppercase tracking-wider">File Issue</span>
+                </button>
+                {!canEdit('governance') && (
+                  <p className="text-[10px] text-text-secondary/70 mt-1 font-bold">Requires Compliance Team access</p>
+                )}
+              </div>
             </div>
 
             <div className="bg-bg-card border border-border-sage rounded-2xl overflow-hidden shadow-lg shadow-brand/5">
@@ -342,6 +406,7 @@ export default function Governance() {
                       <th className="py-4 px-6">Issue</th>
                       <th className="py-4 px-6">Severity</th>
                       <th className="py-4 px-6">Department</th>
+                      <th className="py-4 px-6">Due Date</th>
                       <th className="py-4 px-6">Status</th>
                       <th className="py-4 px-6 text-center">Inspect</th>
                     </tr>
@@ -351,16 +416,18 @@ export default function Governance() {
                       let severityBadge = "";
                       if (item.severity === "High") {
                         severityBadge = "bg-red-500 text-white font-extrabold shadow-sm shadow-red-950/20";
-                      } else if (item.severity === "Medium") {
+                      } else {
                         severityBadge = "bg-accent-gam text-bg-base font-extrabold shadow-sm shadow-amber-950/20";
                       }
 
                       let statusBadge = "";
                       if (item.status === "Open") {
                         statusBadge = "border border-red-500 text-red-400 bg-transparent font-bold";
-                      } else if (item.status === "Resolved") {
+                      } else {
                         statusBadge = "border border-accent-env text-accent-env bg-transparent font-bold";
                       }
+
+                      const overdue = isIssueOverdue(item.dueDate) && item.status !== 'Resolved';
 
                       return (
                         <tr 
@@ -369,7 +436,14 @@ export default function Governance() {
                           className="hover:bg-bg-base/30 transition-colors duration-150 group cursor-pointer"
                         >
                           <td className="py-4 px-6 font-bold text-text-primary group-hover:text-accent-gov transition-colors font-display">
-                            {item.issue}
+                            <span className="flex items-center space-x-2">
+                              <span>{item.title}</span>
+                              {overdue && (
+                                <span className="flex items-center text-[9px] bg-red-500/20 text-red-400 border border-red-500/35 px-1.5 py-0.5 rounded font-extrabold font-sans">
+                                  ⚠️ OVERDUE
+                                </span>
+                              )}
+                            </span>
                           </td>
                           <td className="py-4 px-6">
                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[9px] uppercase tracking-wider ${severityBadge}`}>
@@ -378,6 +452,9 @@ export default function Governance() {
                           </td>
                           <td className="py-4 px-6 text-text-secondary font-semibold">
                             {item.department}
+                          </td>
+                          <td className={`py-4 px-6 font-mono font-medium ${overdue ? 'text-red-400 font-bold' : 'text-text-secondary'}`}>
+                            {item.dueDate}
                           </td>
                           <td className="py-4 px-6">
                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[9px] uppercase tracking-wider ${statusBadge}`}>
@@ -394,11 +471,6 @@ export default function Governance() {
                 </table>
               </div>
             </div>
-
-            <div className="flex items-center space-x-1.5 pl-1 text-[10px] text-text-secondary/70 font-bold uppercase tracking-wide">
-              <AlertTriangle className="w-3.5 h-3.5 text-text-secondary mr-1 not-italic" />
-              <span>Compliance issues track Responsible Owner + Due Date internally.</span>
-            </div>
           </section>
         )}
 
@@ -410,13 +482,22 @@ export default function Governance() {
                 <h2 className="text-xl font-bold font-display text-text-primary tracking-tight">Corporate Policies</h2>
                 <p className="text-xs text-text-secondary mt-1 font-medium">Review active corporate compliance policies and governance guidelines.</p>
               </div>
-              <button 
-                onClick={() => setIsPolicyModalOpen(true)}
-                className="flex items-center space-x-1.5 px-3.5 py-2 bg-gradient-to-r from-accent-gov to-purple-600 text-bg-base font-extrabold text-xs rounded-lg transition-colors cursor-pointer shadow-md shadow-accent-gov/5"
-              >
-                <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                <span className="uppercase tracking-wider">New Policy</span>
-              </button>
+              
+              <div>
+                <button 
+                  onClick={() => { if (canEdit('governance')) setIsPolicyModalOpen(true); }}
+                  disabled={!canEdit('governance')}
+                  className={`flex items-center space-x-1.5 px-3.5 py-2 bg-gradient-to-r from-accent-gov to-purple-600 text-bg-base font-extrabold text-xs rounded-lg transition-colors cursor-pointer shadow-md shadow-accent-gov/5 ${
+                    !canEdit('governance') ? 'opacity-40 cursor-not-allowed filter grayscale' : 'hover:brightness-110 active:scale-[0.98]'
+                  }`}
+                >
+                  <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                  <span className="uppercase tracking-wider">New Policy</span>
+                </button>
+                {!canEdit('governance') && (
+                  <p className="text-[10px] text-text-secondary/70 mt-1 font-bold">Requires Compliance Team access</p>
+                )}
+              </div>
             </div>
 
             <div className="bg-bg-card border border-border-sage rounded-2xl overflow-hidden shadow-lg shadow-brand/5">
@@ -424,9 +505,9 @@ export default function Governance() {
                 <thead>
                   <tr className="bg-bg-card/85 border-b border-border-sage text-[10px] font-bold text-text-secondary uppercase tracking-wider font-display">
                     <th className="py-4 px-6">Name</th>
-                    <th className="py-4 px-6">Classification</th>
-                    <th className="py-4 px-6">Revision Date</th>
-                    <th className="py-4 px-6">Document Version</th>
+                    <th className="py-4 px-6">Description</th>
+                    <th className="py-4 px-6">Effective Date</th>
+                    <th className="py-4 px-6">Acks Target / Completed</th>
                     <th className="py-4 px-6">Status</th>
                   </tr>
                 </thead>
@@ -434,14 +515,16 @@ export default function Governance() {
                   {policies.map(pol => (
                     <tr key={pol.id} className="hover:bg-bg-base/20 transition-colors">
                       <td className="py-4 px-6 font-bold text-text-primary font-display">{pol.name}</td>
+                      <td className="py-4 px-6 text-text-secondary font-medium">{pol.desc}</td>
+                      <td className="py-4 px-6 text-text-secondary font-mono">{pol.effectiveDate}</td>
+                      <td className="py-4 px-6 text-text-primary font-semibold">
+                        {pol.currentAcks || 0} / {pol.targetAcks} ( {Math.round(((pol.currentAcks || 0) / pol.targetAcks) * 100)}% )
+                      </td>
                       <td className="py-4 px-6">
-                        <span className="bg-accent-gov/10 text-accent-gov px-2.5 py-0.5 rounded-full text-[9px] font-bold border border-accent-gov/20">
-                          {pol.category}
+                        <span className="text-accent-env bg-accent-env/10 px-2.5 py-0.5 rounded-full text-[9px] font-bold border border-accent-env/20 uppercase tracking-wider">
+                          {pol.status}
                         </span>
                       </td>
-                      <td className="py-4 px-6 text-text-secondary font-mono">{pol.date}</td>
-                      <td className="py-4 px-6 text-text-primary font-mono">{pol.version}</td>
-                      <td className="py-4 px-6 text-accent-env font-bold">{pol.activeCount} acknowledged</td>
                     </tr>
                   ))}
                 </tbody>
@@ -460,10 +543,10 @@ export default function Governance() {
               </div>
               <button 
                 onClick={() => setIsAckModalOpen(true)}
-                className="flex items-center space-x-1.5 px-3.5 py-2 bg-gradient-to-r from-accent-gov to-purple-600 text-bg-base font-extrabold text-xs rounded-lg transition-colors cursor-pointer shadow-md shadow-accent-gov/5"
+                className="flex items-center space-x-1.5 px-3.5 py-2 bg-gradient-to-r from-accent-gov to-purple-600 text-bg-base font-extrabold text-xs rounded-lg transition-colors cursor-pointer shadow-md shadow-accent-gov/5 hover:brightness-110"
               >
                 <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                <span className="uppercase tracking-wider">Log Acknowledgement</span>
+                <span className="uppercase tracking-wider">Sign Policy</span>
               </button>
             </div>
 
@@ -472,6 +555,7 @@ export default function Governance() {
                 <thead>
                   <tr className="bg-bg-card/85 border-b border-border-sage text-[10px] font-bold text-text-secondary uppercase tracking-wider font-display">
                     <th className="py-4 px-6">Employee</th>
+                    <th className="py-4 px-6">Department</th>
                     <th className="py-4 px-6">Signed Policy</th>
                     <th className="py-4 px-6 font-mono">Timestamp</th>
                     <th className="py-4 px-6">Signature Verification</th>
@@ -481,11 +565,12 @@ export default function Governance() {
                   {acknowledgements.map(ack => (
                     <tr key={ack.id} className="hover:bg-bg-base/20 transition-colors">
                       <td className="py-4 px-6 font-bold text-text-primary font-display">{ack.employee}</td>
+                      <td className="py-4 px-6 text-text-secondary font-semibold">{ack.department}</td>
                       <td className="py-4 px-6 text-text-secondary font-semibold">{ack.policy}</td>
-                      <td className="py-4 px-6 text-text-secondary font-mono">{ack.date}</td>
+                      <td className="py-4 px-6 text-text-secondary font-mono">{ack.ackDate}</td>
                       <td className="py-4 px-6">
                         <span className="text-accent-env bg-accent-env/10 px-2.5 py-0.5 rounded-full text-[9px] font-bold border border-accent-env/20 uppercase tracking-wider">
-                          {ack.method} Verified
+                          E-Sign Verified
                         </span>
                       </td>
                     </tr>
@@ -519,20 +604,6 @@ export default function Governance() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Department</label>
-              <select
-                value={auditFormData.department}
-                onChange={(e) => setAuditFormData({ ...auditFormData, department: e.target.value })}
-                className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary focus:outline-none focus:border-accent-gov"
-              >
-                <option>Manufacturing</option>
-                <option>Procurement</option>
-                <option>Logistics</option>
-                <option>Corporate</option>
-                <option>R&D</option>
-              </select>
-            </div>
-            <div>
               <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Lead Auditor</label>
               <input
                 type="text"
@@ -542,25 +613,25 @@ export default function Governance() {
                 className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary placeholder-text-secondary/40 focus:outline-none focus:border-accent-gov"
               />
             </div>
+            <div>
+              <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Audit Date</label>
+              <input
+                type="date"
+                value={auditFormData.date}
+                onChange={(e) => setAuditFormData({ ...auditFormData, date: e.target.value })}
+                className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary focus:outline-none focus:border-accent-gov"
+              />
+            </div>
           </div>
           <div>
-            <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Audit Date</label>
+            <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Findings Count</label>
             <input
-              type="date"
-              value={auditFormData.date}
-              onChange={(e) => setAuditFormData({ ...auditFormData, date: e.target.value })}
-              className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary focus:outline-none focus:border-accent-gov"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Key Findings Summary</label>
-            <textarea
-              rows="3"
+              type="number"
               value={auditFormData.findings}
               onChange={(e) => setAuditFormData({ ...auditFormData, findings: e.target.value })}
-              placeholder="Detail minor / major compliance issues detected..."
-              className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary placeholder-text-secondary/40 focus:outline-none focus:border-accent-gov"
-            ></textarea>
+              placeholder="e.g. 3"
+              className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary focus:outline-none focus:border-accent-gov"
+            />
           </div>
         </div>
       </Modal>
@@ -578,7 +649,7 @@ export default function Governance() {
           <div className="space-y-4 text-xs">
             <div>
               <span className="text-[10px] uppercase font-bold text-text-secondary tracking-wider font-display">Classification</span>
-              <p className="text-xs font-bold text-text-primary mt-1 font-display">{selectedIssue.issue}</p>
+              <p className="text-xs font-bold text-text-primary mt-1 font-display">{selectedIssue.title}</p>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -592,8 +663,8 @@ export default function Governance() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <span className="text-[10px] uppercase font-bold text-text-secondary tracking-wider font-display">Responsible Owner</span>
-                <p className="text-xs font-semibold text-text-primary mt-1">{selectedIssue.owner}</p>
+                <span className="text-[10px] uppercase font-bold text-text-secondary tracking-wider font-display">Responsible Assignee</span>
+                <p className="text-xs font-semibold text-text-primary mt-1">{selectedIssue.assignee}</p>
               </div>
               <div>
                 <span className="text-[10px] uppercase font-bold text-text-secondary tracking-wider font-display">Resolution Due Date</span>
@@ -612,8 +683,87 @@ export default function Governance() {
                 </span>
               </div>
             </div>
+            
+            {/* Show error note inside inspector modal if user has no resolve access */}
+            {selectedIssue.status === 'Open' && !canApprove('governance') && (
+              <p className="text-[10px] text-red-400 font-bold pt-2 border-t border-border-sage/30">
+                🔒 Resolving compliance issues requires Compliance Team / Admin access.
+              </p>
+            )}
           </div>
         )}
+      </Modal>
+
+      {/* --- FILE NEW COMPLIANCE ISSUE MODAL --- */}
+      <Modal
+        isOpen={isNewIssueModalOpen}
+        onClose={() => setIsNewIssueModalOpen(false)}
+        title="File Governance Compliance Issue"
+        confirmText="File Issue"
+        confirmColorClass="bg-accent-gov hover:bg-purple-600 text-bg-base font-bold"
+        onConfirm={handleNewIssueSubmit}
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Issue Classification Title</label>
+            <input
+              type="text"
+              value={newIssueFormData.title}
+              onChange={(e) => setNewIssueFormData({ ...newIssueFormData, title: e.target.value })}
+              placeholder="e.g. Fuel Log Reporting Gap"
+              className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary placeholder-text-secondary/40 focus:outline-none focus:border-accent-gov"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Department</label>
+              <select
+                value={newIssueFormData.department}
+                onChange={(e) => setNewIssueFormData({ ...newIssueFormData, department: e.target.value })}
+                className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary focus:outline-none focus:border-accent-gov"
+              >
+                <option>Sales</option>
+                <option>Manufacturing</option>
+                <option>Logistics</option>
+                <option>Corporate</option>
+                <option>R&D</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Severity</label>
+              <select
+                value={newIssueFormData.severity}
+                onChange={(e) => setNewIssueFormData({ ...newIssueFormData, severity: e.target.value })}
+                className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary focus:outline-none focus:border-accent-gov"
+              >
+                <option>High</option>
+                <option>Medium</option>
+                <option>Low</option>
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Assignee</label>
+              <input
+                type="text"
+                value={newIssueFormData.assignee}
+                onChange={(e) => setNewIssueFormData({ ...newIssueFormData, assignee: e.target.value })}
+                placeholder="e.g. R. Iyer"
+                className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary placeholder-text-secondary/40 focus:outline-none focus:border-accent-gov"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Due Date</label>
+              <input
+                type="date"
+                value={newIssueFormData.dueDate}
+                onChange={(e) => setNewIssueFormData({ ...newIssueFormData, dueDate: e.target.value })}
+                className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary focus:outline-none focus:border-accent-gov"
+              />
+            </div>
+          </div>
+        </div>
       </Modal>
 
       {/* --- CORPORATE POLICY CREATION MODAL --- */}
@@ -636,15 +786,24 @@ export default function Governance() {
               className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary placeholder-text-secondary/40 focus:outline-none focus:border-accent-gov"
             />
           </div>
+          <div>
+            <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Description</label>
+            <input
+              type="text"
+              value={policyFormData.desc}
+              onChange={(e) => setPolicyFormData({ ...policyFormData, desc: e.target.value })}
+              placeholder="Provide a brief summary of the policy guidelines..."
+              className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary placeholder-text-secondary/40 focus:outline-none focus:border-accent-gov"
+            />
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Revision Version</label>
+              <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Target Acknowledgements</label>
               <input
-                type="text"
-                value={policyFormData.version}
-                onChange={(e) => setPolicyFormData({ ...policyFormData, version: e.target.value })}
-                placeholder="e.g. v2.1"
-                className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary placeholder-text-secondary/40 focus:outline-none focus:border-accent-gov"
+                type="number"
+                value={policyFormData.targetAcks}
+                onChange={(e) => setPolicyFormData({ ...policyFormData, targetAcks: e.target.value })}
+                className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary focus:outline-none focus:border-accent-gov"
               />
             </div>
             <div>

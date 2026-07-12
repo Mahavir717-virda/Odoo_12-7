@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useToast } from '../../context/ToastContext';
+import { getStorageItem, recalculateAllScores } from '../../utils/storage';
 import Modal from '../../components/Modal';
 import { 
   Leaf, 
@@ -85,19 +86,24 @@ export default function Reports() {
     {
       id: 4,
       title: "ESG Summary",
-      desc: "Executive overview: all 4 scores + dept comparison",
+      desc: "Executive overview: all scores & department breakdown",
       icon: <BarChart2 className="w-5 h-5 text-accent-rep" />,
       hero: true
     }
   ];
 
-  // Map filters to their selectable options
+  // Load dynamic lists for filters
+  const departments = getStorageItem('db_departments', []);
+  const employees = getStorageItem('db_users', []);
+  const challenges = getStorageItem('db_challenges', []);
+
+  // Map filters to their selectable options dynamically
   const filterOptionsMap = {
     'Date Range': ['All Time', 'Last 30 Days', 'Last 90 Days', 'This Year'],
-    'Department': ['All Departments', 'Manufacturing', 'Procurement', 'Logistics', 'Corporate', 'R&D'],
+    'Department': ['All Departments', ...departments.map(d => d.name)],
     'Module': ['All Modules', 'Environmental', 'Social', 'Governance'],
-    'Employee': ['All Employees', 'Aditi Rao', 'Karan Shah', 'Deep Pathak'],
-    'Challenge': ['All Challenges', 'Sustainability Sprint', 'Recycle Challenge', 'Commute Green Week'],
+    'Employee': ['All Employees', ...employees.map(e => e.name)],
+    'Challenge': ['All Challenges', ...challenges.map(c => c.title)],
     'ESG Category': ['All Categories', 'Emission Factors', 'Carbon Transactions', 'Diversity', 'Policies', 'Audits']
   };
 
@@ -207,8 +213,8 @@ export default function Reports() {
                   : "border border-border-sage";
                 
                 const btnStyle = card.hero 
-                  ? "bg-accent-rep hover:brightness-110 text-bg-base" 
-                  : "border border-accent-rep/40 text-accent-rep hover:bg-accent-rep/10 bg-transparent";
+                  ? "bg-accent-rep hover:brightness-110 text-bg-base font-bold" 
+                  : "border border-accent-rep/45 text-accent-rep hover:bg-accent-rep/10 bg-transparent font-bold";
 
                 const stateLabel = reportState[card.title];
 
@@ -246,7 +252,7 @@ export default function Reports() {
                             handleGenerateReportCard(card.title);
                           }
                         }}
-                        className={`w-full py-2 ${btnStyle} text-xs font-bold rounded-lg transition-all duration-150 active:scale-[0.98] cursor-pointer`}
+                        className={`w-full py-2 ${btnStyle} text-xs rounded-lg transition-all duration-150 active:scale-[0.98] cursor-pointer`}
                       >
                         {stateLabel === 'Ready' ? 'Download PDF' : 'Generate'}
                       </button>
@@ -314,7 +320,7 @@ export default function Reports() {
                 <div className="bg-bg-base border border-border-sage rounded-xl p-4 text-xs font-mono text-accent-rep space-y-2">
                   <p className="text-text-secondary font-bold">// Custom ESG Query Results</p>
                   <p className="text-text-primary">Target Range: {filters['Date Range']} • Dept: {filters['Department']}</p>
-                  <p className="text-text-secondary">Matching Records: 14 rows loaded successfully.</p>
+                  <p className="text-text-secondary">Matching Records: Loaded dynamically from local database storage.</p>
                   <p className="text-accent-env">Total Carbon Target Achieved: 140 tCO2e equivalents</p>
                 </div>
               </div>
