@@ -21,7 +21,12 @@ export class ReportService {
     }
 
     const transactions = await CarbonTransaction.find(query)
-      .populate('emissionFactorId')
+      .populate({
+        path: 'emissionFactor',
+        populate: {
+          path: 'category'
+        }
+      })
       .sort({ transactionDate: -1 });
 
     // Aggregations
@@ -34,11 +39,11 @@ export class ReportService {
     const monthlyMap = {};
 
     transactions.forEach(t => {
-      const carbon = t.carbonFootprint || 0;
+      const carbon = t.calculatedEmission || 0;
       totalCarbon += carbon;
 
       // Group by scope/category
-      const scope = t.emissionFactorId?.category || 'Scope 3';
+      const scope = t.emissionFactor?.category?.name || 'Scope 3';
       if (scope.includes('1')) scope1 += carbon;
       else if (scope.includes('2')) scope2 += carbon;
       else scope3 += carbon;
@@ -48,7 +53,7 @@ export class ReportService {
       deptMap[d] = (deptMap[d] || 0) + carbon;
 
       // Group by emission factor name
-      const fName = t.emissionFactorId?.name || 'Other';
+      const fName = t.emissionFactor?.name || 'Other';
       factorMap[fName] = (factorMap[fName] || 0) + carbon;
 
       // Group by month
@@ -295,7 +300,7 @@ export class ReportService {
         policiesPublished,
         policiesAccepted,
         pendingPolicies,
-        complianceScore: 92,
+        complianceScore: compliances.length > 0 ? Math.round((resolvedIssues / compliances.length) * 100) : 92,
         auditsPassed,
         auditsFailed,
         openIssues,
@@ -373,11 +378,15 @@ export class ReportService {
       }
     } catch (e) {}
 
-    const envScore = 85;
-    const socScore = 78;
-    const govScore = 92;
+    const Goal = mongoose.model('Goal');
+    const CSR = mongoose.model('CSR');
+    const Policy = mongoose.model('Policy');
 
-    const overallScore = Math.round((envScore * (envW / 100)) + (socScore * (socW / 100)) + (govScore * (govW / 100)));
+    const envScore = await Goal.countDocuments({ isDeleted: { $ne: true } });
+    const socScore = await CSR.countDocuments({ isDeleted: { $ne: true } });
+    const govScore = await Policy.countDocuments({ isDeleted: { $ne: true } });
+
+    const overallScore = envScore + socScore + govScore;
 
     return {
       reportType: 'Comprehensive ESG Summary',
@@ -389,6 +398,9 @@ export class ReportService {
         governance: govW
       },
       overallScore,
+      environmentalScore: envScore,
+      socialScore: socScore,
+      governanceScore: govScore,
       metrics: {
         carbonTransactionsCount: env.data.length,
         csrProjectsCount: soc.data.length,

@@ -147,3 +147,92 @@ export const dropdownService = {
     return res.data || [];
   },
 };
+
+// ─────────────────────────────────────────────────────────────
+// Dashboard Service
+// ─────────────────────────────────────────────────────────────
+export const dashboardService = {
+  async getSummary() {
+    const res = await apiClient('/dashboard/summary');
+    return res.data || {};
+  },
+  async getCompliance() {
+    const res = await apiClient('/dashboard/compliance');
+    return res.data || {};
+  },
+  async getChallenges() {
+    const res = await apiClient('/dashboard/challenges');
+    return res.data || {};
+  },
+  async getBadges() {
+    const res = await apiClient('/dashboard/badges');
+    return res.data || {};
+  },
+  async getRewards() {
+    const res = await apiClient('/dashboard/rewards');
+    return res.data || {};
+  },
+  async getPolicies() {
+    const res = await apiClient('/dashboard/policies');
+    return res.data || {};
+  },
+  async getAudits() {
+    const res = await apiClient('/dashboard/audits');
+    return res.data || {};
+  },
+  async getEmployees() {
+    const res = await apiClient('/dashboard/employees');
+    return res.data || {};
+  },
+  async getCharts() {
+    const res = await apiClient('/dashboard/charts');
+    return res.data || {};
+  },
+};
+
+// ─────────────────────────────────────────────────────────────
+// Reports Service
+// ─────────────────────────────────────────────────────────────
+export const reportService = {
+  async getEsgSummary(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    const res = await apiClient(`/reports/esg-summary?${query}`);
+    return res.data || {};
+  },
+  async getEnvironmental(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    const res = await apiClient(`/reports/environment?${query}`);
+    return res.data || {};
+  },
+};
+
+// ─────────────────────────────────────────────────────────────
+// Challenge Service
+// ─────────────────────────────────────────────────────────────
+export const challengeService = {
+  async getAll() {
+    const res = await apiClient('/challenges?limit=100');
+    return res.data?.results || res.data || [];
+  },
+  async join(challengeId) {
+    const res = await apiClient('/challenges/join', {
+      method: 'POST',
+      body: JSON.stringify({ challengeId }),
+    });
+    return res.data;
+  },
+  async getParticipants() {
+    const res = await apiClient('/challenges/participants');
+    return res.data || [];
+  },
+};
+
+// ─────────────────────────────────────────────────────────────
+// Department Service
+// ─────────────────────────────────────────────────────────────
+export const departmentService = {
+  async getAll() {
+    const res = await apiClient('/departments');
+    return res.data || [];
+  },
+};
