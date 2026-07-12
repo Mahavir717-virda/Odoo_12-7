@@ -186,13 +186,11 @@ export class ReportController {
       return res.status(HTTP_STATUS.BAD_REQUEST).json(new ApiResponse(HTTP_STATUS.BAD_REQUEST, null, 'Invalid report type'));
     }
 
-    const dataRows = Array.isArray(report.data) ? report.data : [report.data];
-    const plainData = dataRows.map(d => (d.toJSON ? d.toJSON() : d));
-    const pdfText = reportService.convertToPDFText(`${reportType} Report`, plainData);
+    const pdfBuffer = await reportService.convertToPDFBuffer(`${reportType} Report`, report);
 
-    res.setHeader('Content-Type', 'text/plain');
-    res.setHeader('Content-Disposition', `attachment; filename="${reportType.toLowerCase()}_report.pdf"`);
-    res.status(HTTP_STATUS.OK).send(Buffer.from(pdfText));
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${reportType.toLowerCase().replace(/\s+/g, '_')}_report.pdf"`);
+    res.status(HTTP_STATUS.OK).send(pdfBuffer);
   });
 
   exportExcel = asyncHandler(async (req, res) => {
@@ -202,12 +200,14 @@ export class ReportController {
       return res.status(HTTP_STATUS.BAD_REQUEST).json(new ApiResponse(HTTP_STATUS.BAD_REQUEST, null, 'Invalid report type'));
     }
 
-    const dataRows = Array.isArray(report.data) ? report.data : [report.data];
-    const plainData = dataRows.map(d => (d.toJSON ? d.toJSON() : d));
+    const dataRows = report.data 
+      ? (Array.isArray(report.data) ? report.data : (report.data.policies ? [...report.data.policies, ...report.data.audits, ...report.data.compliances] : [report.data]))
+      : [];
+    const plainData = dataRows.map(d => (d && d.toJSON ? d.toJSON() : d));
     const excelHTML = reportService.convertToExcelHTML(`${reportType} Report`, plainData);
 
     res.setHeader('Content-Type', 'application/vnd.ms-excel');
-    res.setHeader('Content-Disposition', `attachment; filename="${reportType.toLowerCase()}_report.xls"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${reportType.toLowerCase().replace(/\s+/g, '_')}_report.xls"`);
     res.status(HTTP_STATUS.OK).send(Buffer.from(excelHTML));
   });
 
@@ -218,12 +218,14 @@ export class ReportController {
       return res.status(HTTP_STATUS.BAD_REQUEST).json(new ApiResponse(HTTP_STATUS.BAD_REQUEST, null, 'Invalid report type'));
     }
 
-    const dataRows = Array.isArray(report.data) ? report.data : [report.data];
-    const plainData = dataRows.map(d => (d.toJSON ? d.toJSON() : d));
+    const dataRows = report.data 
+      ? (Array.isArray(report.data) ? report.data : (report.data.policies ? [...report.data.policies, ...report.data.audits, ...report.data.compliances] : [report.data]))
+      : [];
+    const plainData = dataRows.map(d => (d && d.toJSON ? d.toJSON() : d));
     const csvContent = reportService.convertToCSV(plainData);
 
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename="${reportType.toLowerCase()}_report.csv"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${reportType.toLowerCase().replace(/\s+/g, '_')}_report.csv"`);
     res.status(HTTP_STATUS.OK).send(csvContent);
   });
 }
