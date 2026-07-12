@@ -98,33 +98,39 @@ export default function Settings() {
         status: "Active"
       };
       setDepartments([...departments, newDept]);
-      showToast("Department created successfully!", "success");
+      showToast(`Department ${deptFormData.name} registered!`, "success");
     } else {
-      setDepartments(departments.map(d => d.name === selectedDeptName ? { ...d, ...deptFormData } : d));
-      showToast("Department details updated!", "success");
+      setDepartments(departments.map(item => {
+        if (item.name === selectedDeptName) {
+          return { ...item, ...deptFormData };
+        }
+        return item;
+      }));
+      showToast(`Department ${deptFormData.name} updated!`, "success");
     }
     setIsDeptModalOpen(false);
+    setSelectedDeptName(null);
   };
 
   const triggerDeleteConfirm = () => {
     if (!isAdmin) {
-      showToast("Admin privileges required to remove departments.", "error");
+      showToast("Admin permissions required to remove departments.", "error");
       return;
     }
     setIsDeleteConfirmOpen(true);
   };
 
   const handleConfirmDelete = () => {
-    setDepartments(departments.filter(d => d.name !== selectedDeptName));
-    showToast("Department successfully unregistered.", "success");
-    setSelectedDeptName(null);
+    setDepartments(departments.filter(x => x.name !== selectedDeptName));
+    showToast(`Department ${selectedDeptName} deleted.`, "success");
     setIsDeleteConfirmOpen(false);
+    setSelectedDeptName(null);
   };
 
   const handleCreateCategory = (e) => {
     e.preventDefault();
-    if (!categoryFormData.name) {
-      showToast("Category name is required.", "error");
+    if (!categoryFormData.name || !categoryFormData.weight) {
+      showToast("Please fill in category name and score weight.", "error");
       return;
     }
     const newCat = {
@@ -132,16 +138,17 @@ export default function Settings() {
       ...categoryFormData
     };
     setCategories([...categories, newCat]);
-    showToast("ESG category registered successfully!", "success");
+    showToast("ESG Category created successfully!", "success");
     setIsCategoryModalOpen(false);
+    setCategoryFormData({ name: '', classification: 'Environmental', weight: '30%' });
   };
 
   const subTabs = ['Departments', 'Categories', 'ESG Configuration', 'Notification Settings'];
 
   return (
-    <div className="flex flex-col min-w-0 overflow-y-auto bg-[#0B0F14] flex-1">
+    <div className="flex flex-col min-w-0 overflow-y-auto bg-bg-base flex-1">
       {/* SUB-NAV ROW */}
-      <div className="bg-[#11161D]/10 border-b border-[#1F2937]/60 px-6 py-4">
+      <div className="bg-bg-card/10 border-b border-border-sage px-6 py-4">
         <div className="flex flex-wrap gap-3">
           {subTabs.map((subSection) => {
             const isActive = subSection === activeSubTab;
@@ -152,10 +159,10 @@ export default function Settings() {
                   setActiveSubTab(subSection);
                   setSelectedDeptName(null);
                 }}
-                className={`px-4 py-2 rounded-lg text-xs font-semibold tracking-wide transition-all duration-200 ${
+                className={`px-4 py-2 rounded-lg text-xs font-semibold tracking-wide transition-all duration-200 cursor-pointer ${
                   isActive 
-                    ? 'bg-white text-black font-bold shadow-md shadow-white/5' 
-                    : 'bg-[#11161D] border border-gray-800 text-gray-400 hover:text-gray-200 hover:border-gray-700'
+                    ? 'bg-text-primary text-bg-base font-bold shadow-md shadow-text-primary/10' 
+                    : 'bg-bg-card border border-border-sage text-text-secondary hover:text-text-primary hover:border-text-secondary'
                 }`}
               >
                 {subSection}
@@ -173,22 +180,22 @@ export default function Settings() {
           <section className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <h2 className="text-xl font-bold text-white tracking-tight">Organization Departments</h2>
-                <p className="text-xs text-gray-400 mt-1 font-medium">Manage corporate hierarchy and internal departments for ESG tracking.</p>
+                <h2 className="text-xl font-bold font-display text-text-primary tracking-tight">Organization Departments</h2>
+                <p className="text-xs text-text-secondary mt-1 font-medium">Manage corporate hierarchy and internal departments for ESG tracking.</p>
               </div>
 
               <div className="flex items-center space-x-2.5">
                 <button 
                   disabled={!isAdmin}
                   onClick={() => openDeptModal('create')}
-                  className={`flex items-center space-x-1.5 px-3.5 py-2 bg-white text-black font-bold text-xs rounded-lg transition-all duration-150 ${
+                  className={`flex items-center space-x-1.5 px-3.5 py-2 bg-text-primary text-bg-base font-extrabold text-xs rounded-lg transition-all shadow-md shadow-text-primary/5 ${
                     isAdmin 
-                      ? 'hover:bg-gray-100 active:scale-[0.98]' 
+                      ? 'hover:brightness-90 active:scale-[0.98] cursor-pointer' 
                       : 'opacity-40 cursor-not-allowed'
                   }`}
                 >
                   <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                  <span>New Department</span>
+                  <span className="uppercase tracking-wider">New Department</span>
                 </button>
                 
                 <button 
@@ -197,38 +204,42 @@ export default function Settings() {
                     const d = departments.find(x => x.name === selectedDeptName);
                     if (d) openDeptModal('edit', d);
                   }}
-                  className={`flex items-center space-x-1.5 px-3.5 py-2 bg-transparent border border-[#F59E0B]/40 text-[#F59E0B] font-semibold text-xs rounded-lg transition-all duration-150 ${
-                    !selectedDeptName ? 'opacity-30 cursor-not-allowed' : 'hover:border-[#F59E0B] hover:bg-gray-800/40 active:scale-[0.98]'
+                  className={`flex items-center space-x-1.5 px-3.5 py-2 bg-transparent border border-accent-gam/45 text-accent-gam font-bold text-xs rounded-lg transition-all ${
+                    !selectedDeptName 
+                      ? 'opacity-30 cursor-not-allowed' 
+                      : 'hover:border-accent-gam hover:bg-accent-gam/5 active:scale-[0.98] cursor-pointer'
                   }`}
                 >
                   <Pencil className="w-3.5 h-3.5" />
-                  <span>Edit</span>
+                  <span className="uppercase tracking-wider">Edit</span>
                 </button>
 
                 <button 
                   disabled={!selectedDeptName}
                   onClick={triggerDeleteConfirm}
-                  className={`flex items-center space-x-1.5 px-3.5 py-2 bg-transparent border border-[#EF4444]/40 text-[#EF4444] font-semibold text-xs rounded-lg transition-all duration-150 ${
-                    !selectedDeptName ? 'opacity-30 cursor-not-allowed' : 'hover:border-[#EF4444] hover:bg-red-950/20 active:scale-[0.98]'
+                  className={`flex items-center space-x-1.5 px-3.5 py-2 bg-transparent border border-red-500/45 text-red-500 font-bold text-xs rounded-lg transition-all ${
+                    !selectedDeptName 
+                      ? 'opacity-30 cursor-not-allowed' 
+                      : 'hover:border-red-500 hover:bg-red-500/5 active:scale-[0.98] cursor-pointer'
                   }`}
                 >
                   <Trash2 className="w-3.5 h-3.5" />
-                  <span>Delete</span>
+                  <span className="uppercase tracking-wider">Delete</span>
                 </button>
 
                 {!isAdmin && (
-                  <span className="text-[10px] text-gray-500 font-semibold bg-gray-800/40 px-2 py-1 rounded border border-gray-800/60">
-                    Admin access required
+                  <span className="text-[9px] text-text-secondary font-bold bg-bg-card border border-border-sage px-2 py-1 rounded-full uppercase tracking-wider">
+                    Admin Access Required
                   </span>
                 )}
               </div>
             </div>
 
-            <div className="bg-[#11161D] border border-gray-800/85 rounded-2xl overflow-hidden shadow-lg">
+            <div className="bg-bg-card border border-border-sage rounded-2xl overflow-hidden shadow-lg shadow-brand/5">
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-[700px]">
+                <table className="w-full text-left border-collapse min-w-[700px] text-xs">
                   <thead>
-                    <tr className="bg-[#171D26] border-b border-gray-800 text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                    <tr className="bg-bg-card/85 border-b border-border-sage text-[10px] font-bold text-text-secondary uppercase tracking-wider font-display">
                       <th className="py-4 px-6 w-8"></th>
                       <th className="py-4 px-6">Name</th>
                       <th className="py-4 px-6">Code</th>
@@ -238,7 +249,7 @@ export default function Settings() {
                       <th className="py-4 px-6">Status</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-800/60 text-xs text-gray-300">
+                  <tbody className="divide-y divide-border-sage/40 text-text-primary">
                     {departments.map((dept) => {
                       const isSelected = selectedDeptName === dept.name;
                       return (
@@ -249,7 +260,7 @@ export default function Settings() {
                               setSelectedDeptName(isSelected ? null : dept.name);
                             }
                           }}
-                          className={`hover:bg-gray-800/15 transition-colors duration-150 group ${isAdmin ? 'cursor-pointer' : ''} ${isSelected ? 'bg-white/5 hover:bg-white/10' : ''}`}
+                          className={`hover:bg-bg-base/30 transition-colors duration-150 group ${isAdmin ? 'cursor-pointer' : ''} ${isSelected ? 'bg-text-primary/5 hover:bg-text-primary/10' : ''}`}
                         >
                           <td className="py-4 px-6 text-center">
                             {isAdmin ? (
@@ -257,29 +268,29 @@ export default function Settings() {
                                 type="checkbox"
                                 checked={isSelected}
                                 onChange={() => {}} // toggled on row click
-                                className="rounded border-gray-750 bg-gray-800 text-white focus:ring-0"
+                                className="rounded border-border-sage bg-bg-base text-text-primary focus:ring-0 focus:ring-offset-0"
                               />
                             ) : (
-                              <span className="text-gray-650 font-mono">-</span>
+                              <span className="text-text-secondary font-mono text-[9px]">-</span>
                             )}
                           </td>
-                          <td className="py-4 px-6 font-semibold text-white group-hover:text-gray-200 transition-colors">
+                          <td className="py-4 px-6 font-bold text-text-primary group-hover:text-text-primary transition-colors font-display">
                             {dept.name}
                           </td>
-                          <td className="py-4 px-6 text-gray-400 font-mono">
+                          <td className="py-4 px-6 text-text-secondary font-mono">
                             {dept.code}
                           </td>
-                          <td className="py-4 px-6 text-gray-300">
+                          <td className="py-4 px-6 text-text-primary font-medium">
                             {dept.head}
                           </td>
-                          <td className={`py-4 px-6 ${dept.parent === '—' ? 'text-gray-650' : 'text-gray-400'}`}>
+                          <td className={`py-4 px-6 ${dept.parent === '—' ? 'text-text-secondary/40' : 'text-text-secondary'}`}>
                             {dept.parent}
                           </td>
-                          <td className="py-4 px-6 font-mono font-semibold text-white">
+                          <td className="py-4 px-6 font-mono font-bold text-text-primary">
                             {dept.employees}
                           </td>
                           <td className="py-4 px-6">
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[#22C55E]/10 text-[#22C55E] border border-[#22C55E]/20">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-accent-env/10 text-accent-env border border-accent-env/20">
                               {dept.status}
                             </span>
                           </td>
@@ -298,34 +309,38 @@ export default function Settings() {
           <section className="space-y-6">
             <div className="flex justify-between items-center">
               <div>
-                <h2 className="text-xl font-bold text-white tracking-tight">ESG Categories</h2>
-                <p className="text-xs text-gray-400 mt-1 font-medium font-sans">Manage global metrics classifications and weights configured across the platform.</p>
+                <h2 className="text-xl font-bold font-display text-text-primary tracking-tight">ESG Categories</h2>
+                <p className="text-xs text-text-secondary mt-1 font-medium">Manage global metrics classifications and weights configured across the platform.</p>
               </div>
               <button
                 disabled={!isAdmin}
                 onClick={() => setIsCategoryModalOpen(true)}
-                className={`flex items-center space-x-1 px-3 py-1.5 bg-white text-black font-bold text-xs rounded-lg ${!isAdmin ? 'opacity-40 cursor-not-allowed' : 'hover:bg-gray-100'}`}
+                className={`flex items-center space-x-1.5 px-3.5 py-2 bg-text-primary text-bg-base font-extrabold text-xs rounded-lg transition-all shadow-md shadow-text-primary/5 ${
+                  isAdmin 
+                    ? 'hover:brightness-90 active:scale-[0.98] cursor-pointer' 
+                    : 'opacity-40 cursor-not-allowed'
+                }`}
               >
                 <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                <span>New Category</span>
+                <span className="uppercase tracking-wider">New Category</span>
               </button>
             </div>
 
-            <div className="bg-[#11161D] border border-gray-800 rounded-2xl overflow-hidden shadow-lg">
+            <div className="bg-bg-card border border-border-sage rounded-2xl overflow-hidden shadow-lg shadow-brand/5">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="bg-[#171D26] border-b border-gray-800 text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                  <tr className="bg-bg-card/85 border-b border-border-sage text-[10px] font-bold text-text-secondary uppercase tracking-wider font-display">
                     <th className="py-4 px-6">Category Name</th>
                     <th className="py-4 px-6">Classification</th>
                     <th className="py-4 px-6 text-right">Score Weight</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-800/60 text-gray-300">
+                <tbody className="divide-y divide-border-sage/40 text-text-primary">
                   {categories.map(c => (
-                    <tr key={c.id} className="hover:bg-gray-800/10">
-                      <td className="py-4 px-6 font-semibold text-white">{c.name}</td>
-                      <td className="py-4 px-6 font-medium text-gray-400">{c.classification}</td>
-                      <td className="py-4 px-6 text-right font-mono text-emerald-400 font-bold">{c.weight}</td>
+                    <tr key={c.id} className="hover:bg-bg-base/20 transition-colors">
+                      <td className="py-4 px-6 font-bold text-text-primary font-display">{c.name}</td>
+                      <td className="py-4 px-6 font-semibold text-text-secondary">{c.classification}</td>
+                      <td className="py-4 px-6 text-right font-mono text-accent-env font-bold">{c.weight}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -336,65 +351,65 @@ export default function Settings() {
 
         {/* --- ESG CONFIG & NOTIFICATIONS --- */}
         {(activeSubTab === 'ESG Configuration' || activeSubTab === 'Notification Settings') && (
-          <section className="bg-[#11161D] border border-gray-800/80 rounded-2xl p-6 space-y-6">
+          <section className="bg-bg-card border border-border-sage rounded-2xl p-6 space-y-6 shadow-lg shadow-brand/5">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2.5">
-                <Settings2 className="w-5 h-5 text-gray-400" />
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                <Settings2 className="w-5 h-5 text-text-secondary" />
+                <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider font-display">
                   {activeSubTab === 'ESG Configuration' ? 'ESG Configuration' : 'Notification Settings'}
                 </h3>
               </div>
               {!isAdmin && (
-                <span className="text-[10px] text-gray-550 font-semibold bg-gray-800/40 px-2.5 py-1 rounded border border-gray-800/60">
-                  Admin access required to modify settings
+                <span className="text-[9px] text-text-secondary font-bold bg-bg-base border border-border-sage px-2 py-1 rounded-full uppercase tracking-wider">
+                  Admin Access Required to Modify Settings
                 </span>
               )}
             </div>
 
-            <div className="divide-y divide-gray-800/60">
+            <div className="divide-y divide-border-sage/40">
               {activeSubTab === 'ESG Configuration' && (
                 <>
                   <div className="flex items-center justify-between py-4">
-                    <span className="text-xs font-semibold text-gray-300">Enable auto emission calculation</span>
+                    <span className="text-xs font-semibold text-text-primary">Enable auto emission calculation</span>
                     <button 
                       disabled={!isAdmin}
                       onClick={() => toggleHandler('autoEmission')}
                       className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors duration-300 focus:outline-none ${
-                        toggles.autoEmission ? 'bg-[#22C55E]' : 'bg-gray-800'
+                        toggles.autoEmission ? 'bg-accent-env' : 'bg-bg-base border border-border-sage'
                       } ${!isAdmin ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
                     >
-                      <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-300 ${
-                        toggles.autoEmission ? 'translate-x-5' : 'translate-x-0'
+                      <div className={`w-4 h-4 rounded-full shadow-md transform transition-transform duration-300 ${
+                        toggles.autoEmission ? 'translate-x-5 bg-bg-base' : 'translate-x-0 bg-text-secondary'
                       }`} />
                     </button>
                   </div>
 
                   <div className="flex items-center justify-between py-4">
-                    <span className="text-xs font-semibold text-gray-300">Require evidence for all CSR activities</span>
+                    <span className="text-xs font-semibold text-text-primary">Require evidence for all CSR activities</span>
                     <button 
                       disabled={!isAdmin}
                       onClick={() => toggleHandler('requireEvidence')}
                       className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors duration-300 focus:outline-none ${
-                        toggles.requireEvidence ? 'bg-[#22C55E]' : 'bg-gray-800'
+                        toggles.requireEvidence ? 'bg-accent-env' : 'bg-bg-base border border-border-sage'
                       } ${!isAdmin ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
                     >
-                      <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-300 ${
-                        toggles.requireEvidence ? 'translate-x-5' : 'translate-x-0'
+                      <div className={`w-4 h-4 rounded-full shadow-md transform transition-transform duration-300 ${
+                        toggles.requireEvidence ? 'translate-x-5 bg-bg-base' : 'translate-x-0 bg-text-secondary'
                       }`} />
                     </button>
                   </div>
 
                   <div className="flex items-center justify-between py-4">
-                    <span className="text-xs font-semibold text-gray-300">Auto-award badges on challenge completion</span>
+                    <span className="text-xs font-semibold text-text-primary">Auto-award badges on challenge completion</span>
                     <button 
                       disabled={!isAdmin}
                       onClick={() => toggleHandler('autoAwardBadges')}
                       className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors duration-300 focus:outline-none ${
-                        toggles.autoAwardBadges ? 'bg-[#22C55E]' : 'bg-gray-800'
+                        toggles.autoAwardBadges ? 'bg-accent-env' : 'bg-bg-base border border-border-sage'
                       } ${!isAdmin ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
                     >
-                      <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-300 ${
-                        toggles.autoAwardBadges ? 'translate-x-5' : 'translate-x-0'
+                      <div className={`w-4 h-4 rounded-full shadow-md transform transition-transform duration-300 ${
+                        toggles.autoAwardBadges ? 'translate-x-5 bg-bg-base' : 'translate-x-0 bg-text-secondary'
                       }`} />
                     </button>
                   </div>
@@ -403,16 +418,16 @@ export default function Settings() {
 
               {activeSubTab === 'Notification Settings' && (
                 <div className="flex items-center justify-between py-4">
-                  <span className="text-xs font-semibold text-gray-300">Email alerts for new compliance issues</span>
+                  <span className="text-xs font-semibold text-text-primary">Email alerts for new compliance issues</span>
                   <button 
                     disabled={!isAdmin}
                     onClick={() => toggleHandler('emailAlerts')}
                     className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors duration-300 focus:outline-none ${
-                      toggles.emailAlerts ? 'bg-[#22C55E]' : 'bg-gray-800'
+                      toggles.emailAlerts ? 'bg-accent-env' : 'bg-bg-base border border-border-sage'
                     } ${!isAdmin ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
                   >
-                    <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-300 ${
-                      toggles.emailAlerts ? 'translate-x-5' : 'translate-x-0'
+                    <div className={`w-4 h-4 rounded-full shadow-md transform transition-transform duration-300 ${
+                      toggles.emailAlerts ? 'translate-x-5 bg-bg-base' : 'translate-x-0 bg-text-secondary'
                     }`} />
                   </button>
                 </div>
@@ -428,49 +443,49 @@ export default function Settings() {
         onClose={() => setIsDeptModalOpen(false)}
         title={deptModalMode === 'create' ? "Register Corporate Department" : "Edit Department Details"}
         confirmText={deptModalMode === 'create' ? "Register" : "Save Changes"}
-        confirmColorClass="bg-white hover:bg-gray-105 text-black font-bold"
+        confirmColorClass="bg-text-primary hover:brightness-90 text-bg-base font-bold"
         onConfirm={handleDeptSubmit}
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Department Name</label>
+            <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Department Name</label>
             <input
               type="text"
               value={deptFormData.name}
               onChange={(e) => setDeptFormData({ ...deptFormData, name: e.target.value })}
               placeholder="e.g. Research & Development"
-              className="w-full bg-[#0B0F14] border border-gray-800 rounded-lg p-2 text-xs text-gray-300 focus:outline-none focus:border-white"
+              className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary placeholder-text-secondary/40 focus:outline-none focus:border-text-primary"
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Department Code</label>
+              <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Department Code</label>
               <input
                 type="text"
                 value={deptFormData.code}
                 onChange={(e) => setDeptFormData({ ...deptFormData, code: e.target.value })}
                 placeholder="e.g. RND"
-                className="w-full bg-[#0B0F14] border border-gray-800 rounded-lg p-2 text-xs text-gray-300 focus:outline-none"
+                className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary placeholder-text-secondary/40 focus:outline-none"
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Lead / Head</label>
+              <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Lead / Head</label>
               <input
                 type="text"
                 value={deptFormData.head}
                 onChange={(e) => setDeptFormData({ ...deptFormData, head: e.target.value })}
                 placeholder="e.g. A. Mehta"
-                className="w-full bg-[#0B0F14] border border-gray-800 rounded-lg p-2 text-xs text-gray-300 focus:outline-none"
+                className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary placeholder-text-secondary/40 focus:outline-none"
               />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Parent Department</label>
+              <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Parent Department</label>
               <select
                 value={deptFormData.parent}
                 onChange={(e) => setDeptFormData({ ...deptFormData, parent: e.target.value })}
-                className="w-full bg-[#0B0F14] border border-gray-800 rounded-lg p-2 text-xs text-gray-300 focus:outline-none"
+                className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary focus:outline-none focus:border-text-primary"
               >
                 <option value="—">None (Top-Level)</option>
                 {departments.map(d => (
@@ -479,13 +494,13 @@ export default function Settings() {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Employee Count</label>
+              <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Employee Count</label>
               <input
                 type="number"
                 value={deptFormData.employees}
                 onChange={(e) => setDeptFormData({ ...deptFormData, employees: e.target.value })}
                 placeholder="e.g. 45"
-                className="w-full bg-[#0B0F14] border border-gray-800 rounded-lg p-2 text-xs text-gray-300 focus:outline-none"
+                className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary placeholder-text-secondary/40 focus:outline-none"
               />
             </div>
           </div>
@@ -498,10 +513,10 @@ export default function Settings() {
         onClose={() => setIsDeleteConfirmOpen(false)}
         title="Confirm Deregistration"
         confirmText="Deregister Department"
-        confirmColorClass="bg-red-500 hover:bg-red-655 text-white font-bold"
+        confirmColorClass="bg-red-500 hover:bg-red-600 text-white font-bold"
         onConfirm={handleConfirmDelete}
       >
-        <p className="text-xs text-gray-300">Are you sure you want to unregister the selected department? All associated ESG logs will remain but direct reporting will be severed.</p>
+        <p className="text-xs text-text-secondary font-semibold">Are you sure you want to unregister the selected department? All associated ESG logs will remain but direct reporting will be severed.</p>
       </Modal>
 
       {/* --- CATEGORY FORM MODAL --- */}
@@ -510,27 +525,27 @@ export default function Settings() {
         onClose={() => setIsCategoryModalOpen(false)}
         title="New ESG Classification Category"
         confirmText="Register Category"
-        confirmColorClass="bg-white hover:bg-gray-100 text-black font-bold"
+        confirmColorClass="bg-text-primary hover:brightness-90 text-bg-base font-bold"
         onConfirm={handleCreateCategory}
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Category Name</label>
+            <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Category Name</label>
             <input
               type="text"
               value={categoryFormData.name}
               onChange={(e) => setCategoryFormData({ ...categoryFormData, name: e.target.value })}
               placeholder="e.g. Circularity and recycling rate"
-              className="w-full bg-[#0B0F14] border border-gray-800 rounded-lg p-2 text-xs text-gray-300 focus:outline-none"
+              className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary placeholder-text-secondary/40 focus:outline-none focus:border-text-primary"
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Classification</label>
+              <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Classification</label>
               <select
                 value={categoryFormData.classification}
                 onChange={(e) => setCategoryFormData({ ...categoryFormData, classification: e.target.value })}
-                className="w-full bg-[#0B0F14] border border-gray-800 rounded-lg p-2 text-xs text-gray-300 focus:outline-none"
+                className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary focus:outline-none focus:border-text-primary"
               >
                 <option>Environmental</option>
                 <option>Social</option>
@@ -538,13 +553,13 @@ export default function Settings() {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Weight (%)</label>
+              <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Weight (%)</label>
               <input
                 type="text"
                 value={categoryFormData.weight}
                 onChange={(e) => setCategoryFormData({ ...categoryFormData, weight: e.target.value })}
                 placeholder="e.g. 25%"
-                className="w-full bg-[#0B0F14] border border-gray-800 rounded-lg p-2 text-xs text-gray-300 focus:outline-none"
+                className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary placeholder-text-secondary/40 focus:outline-none focus:border-text-primary"
               />
             </div>
           </div>

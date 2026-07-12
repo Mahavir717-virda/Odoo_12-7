@@ -100,15 +100,13 @@ export default function Environmental() {
     { id: 3, date: "2026-07-01", desc: "Solar Array Power Generation", type: "Offset", amount: "-45 tCO2e", cost: "$0" }
   ]);
 
-  // --- MODALS STATE ---
+  // --- MODALS FORM STATE ---
   const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
-  const [goalModalMode, setGoalModalMode] = useState('create'); // 'create' | 'edit' | 'view'
-  const [currentGoalData, setCurrentGoalData] = useState({ name: '', department: 'Logistics', targetCo2: '', currentCo2: '0', progress: 0, deadline: '', status: 'Active' });
-
+  const [goalModalMode, setGoalModalMode] = useState('create'); 
+  const [currentGoalData, setCurrentGoalData] = useState({ name: '', department: 'Logistics', targetCo2Input: '', currentCo2Input: '', deadline: '' });
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState(null);
 
-  // Generic Sub-tabs Modals
   const [isFactorModalOpen, setIsFactorModalOpen] = useState(false);
   const [factorFormData, setFactorFormData] = useState({ name: '', category: 'Scope 1', value: '', source: '' });
 
@@ -118,33 +116,15 @@ export default function Environmental() {
   const [isTxModalOpen, setIsTxModalOpen] = useState(false);
   const [txFormData, setTxFormData] = useState({ desc: '', type: 'Emission', amount: '', cost: '' });
 
-  // --- FILTERED DATA SETS ---
-  const filteredGoals = goals.filter(goal => 
-    goal.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    goal.department.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    goal.status.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // --- ACTIONS HANDLERS ---
 
-  const filteredFactors = factors.filter(f =>
-    f.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    f.category.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const filteredProfiles = profiles.filter(p =>
-    p.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const filteredTransactions = transactions.filter(t =>
-    t.desc.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    t.type.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  // --- HANDLERS ---
-
-  // Export Trigger
+  // Export
   const triggerExport = (format) => {
-    showToast(`Exporting as ${format}...`, "info");
-    setIsExportOpen(false);
+    showToast(`Generating ${format} report export...`, "info");
+    setTimeout(() => {
+      showToast(`Exported successfully as ${format}!`, "success");
+      setIsExportOpen(false);
+    }, 1000);
   };
 
   // Open Goal Modal
@@ -152,22 +132,24 @@ export default function Environmental() {
     setGoalModalMode(mode);
     if (goalObj) {
       setCurrentGoalData({
-        ...goalObj,
-        // remove " t" suffix from target for clean editing
+        id: goalObj.id,
+        name: goalObj.name,
+        department: goalObj.department,
         targetCo2Input: goalObj.targetCo2.replace(' t', ''),
-        currentCo2Input: goalObj.currentCo2.replace(' t', '')
+        currentCo2Input: goalObj.currentCo2.replace(' t', ''),
+        deadline: goalObj.deadline
       });
     } else {
-      setCurrentGoalData({ name: '', department: 'Logistics', targetCo2Input: '', currentCo2Input: '0', progress: 0, deadline: '', status: 'Active' });
+      setCurrentGoalData({ name: '', department: 'Logistics', targetCo2Input: '', currentCo2Input: '0', deadline: '' });
     }
     setIsGoalModalOpen(true);
   };
 
-  // Submit Goal Form (Create / Edit)
+  // Goal Submit
   const handleGoalSubmit = (e) => {
     e.preventDefault();
     if (!currentGoalData.name || !currentGoalData.targetCo2Input || !currentGoalData.deadline) {
-      showToast("Please fill in all goal fields.", "error");
+      showToast("Please fill in name, target CO2, and deadline.", "error");
       return;
     }
 
@@ -183,12 +165,11 @@ export default function Environmental() {
         status: "Active"
       };
       setGoals([...goals, newGoal]);
-      showToast("Goal created successfully!", "success");
+      showToast("Environmental Goal created!", "success");
     } else if (goalModalMode === 'edit') {
-      const progressNum = Math.min(Math.round((parseFloat(currentGoalData.currentCo2Input || 0) / parseFloat(currentGoalData.targetCo2Input)) * 100), 100);
-      let status = "Active";
-      if (progressNum >= 100) status = "Completed";
-      else if (progressNum > 50) status = "On Track";
+      const t = parseFloat(currentGoalData.targetCo2Input) || 1;
+      const c = parseFloat(currentGoalData.currentCo2Input) || 0;
+      const prog = Math.min(Math.round((c / t) * 100), 100);
 
       setGoals(goals.map(g => g.id === currentGoalData.id ? {
         ...g,
@@ -196,16 +177,16 @@ export default function Environmental() {
         department: currentGoalData.department,
         targetCo2: `${currentGoalData.targetCo2Input} t`,
         currentCo2: `${currentGoalData.currentCo2Input} t`,
-        progress: progressNum,
+        progress: prog,
         deadline: currentGoalData.deadline,
-        status: status
+        status: prog >= 100 ? "Completed" : prog > 80 ? "On Track" : "Active"
       } : g));
       showToast("Goal updated successfully!", "success");
     }
     setIsGoalModalOpen(false);
   };
 
-  // Delete Action
+  // Delete Trigger
   const triggerDeleteConfirm = (id) => {
     setDeleteTargetId(id);
     setIsDeleteConfirmOpen(true);
@@ -213,18 +194,16 @@ export default function Environmental() {
 
   const handleConfirmDelete = () => {
     setGoals(goals.filter(g => g.id !== deleteTargetId));
-    showToast("Goal deleted successfully!", "success");
+    showToast("Goal deleted successfully.", "success");
+    setSelectedGoalId(null);
     setIsDeleteConfirmOpen(false);
-    if (selectedGoalId === deleteTargetId) {
-      setSelectedGoalId(null);
-    }
   };
 
   // Factor Submit
   const handleFactorSubmit = (e) => {
     e.preventDefault();
     if (!factorFormData.name || !factorFormData.value) {
-      showToast("Please complete factor name and value.", "error");
+      showToast("Please fill in factor name and value.", "error");
       return;
     }
     const newFactor = {
@@ -232,7 +211,7 @@ export default function Environmental() {
       ...factorFormData
     };
     setFactors([...factors, newFactor]);
-    showToast("Emission Factor added successfully!", "success");
+    showToast("Emission Factor registered!", "success");
     setIsFactorModalOpen(false);
   };
 
@@ -240,7 +219,7 @@ export default function Environmental() {
   const handleProfileSubmit = (e) => {
     e.preventDefault();
     if (!profileFormData.name || !profileFormData.carbonFootprint) {
-      showToast("Please fill in name and footprint.", "error");
+      showToast("Please fill in product name and carbon footprint.", "error");
       return;
     }
     const newProfile = {
@@ -271,10 +250,16 @@ export default function Environmental() {
 
   const subTabs = ['Emission Factors', 'Product ESG Profiles', 'Carbon Transactions', 'Environmental Goals'];
 
+  // Filter based on search query
+  const filteredGoals = goals.filter(g => g.name.toLowerCase().includes(searchQuery.toLowerCase()) || g.department.toLowerCase().includes(searchQuery.toLowerCase()));
+  const filteredFactors = factors.filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase()) || f.category.toLowerCase().includes(searchQuery.toLowerCase()));
+  const filteredProfiles = profiles.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
+  const filteredTransactions = transactions.filter(t => t.desc.toLowerCase().includes(searchQuery.toLowerCase()));
+
   return (
-    <div className="flex flex-col min-w-0 overflow-y-auto bg-[#0B0F14] flex-1">
+    <div className="flex flex-col min-w-0 overflow-y-auto bg-bg-base flex-1">
       {/* SUB-NAV ROW */}
-      <div className="bg-[#11161D]/10 border-b border-[#1F2937]/60 px-6 py-4">
+      <div className="bg-bg-card/10 border-b border-border-sage px-6 py-4">
         <div className="flex flex-wrap gap-3">
           {subTabs.map((subSection) => {
             const isActive = subSection === activeSubTab;
@@ -284,11 +269,12 @@ export default function Environmental() {
                 onClick={() => {
                   setActiveSubTab(subSection);
                   setSelectedGoalId(null);
+                  setSearchQuery('');
                 }}
-                className={`px-4 py-2 rounded-lg text-xs font-semibold tracking-wide transition-all duration-200 ${
+                className={`px-4 py-2 rounded-lg text-xs font-semibold tracking-wide transition-all duration-200 cursor-pointer ${
                   isActive 
-                    ? 'bg-[#22C55E] text-black shadow-md shadow-emerald-500/10 font-bold' 
-                    : 'bg-[#11161D] border border-gray-800 text-gray-400 hover:text-gray-200 hover:border-gray-700'
+                    ? 'bg-accent-env text-bg-base shadow-md shadow-accent-env/10 font-bold' 
+                    : 'bg-bg-card border border-border-sage text-text-secondary hover:text-text-primary hover:border-text-secondary'
                 }`}
               >
                 {subSection}
@@ -304,19 +290,19 @@ export default function Environmental() {
           <>
             {/* HEADER SECTION */}
             <div>
-              <h2 className="text-xl font-bold text-white tracking-tight">Environmental Goals</h2>
-              <p className="text-xs text-gray-400 mt-1">Set, track, and manage departmental carbon reduction goals and progress benchmarks.</p>
+              <h2 className="text-xl font-bold font-display text-text-primary tracking-tight">Environmental Goals</h2>
+              <p className="text-xs text-text-secondary mt-1 font-medium">Set, track, and manage departmental carbon reduction goals and progress benchmarks.</p>
             </div>
 
             {/* ACTION BAR */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 bg-[#11161D] border border-gray-800/80 rounded-2xl">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 bg-bg-card border border-border-sage rounded-2xl">
               <div className="flex flex-wrap gap-2.5">
                 <button 
                   onClick={() => openGoalModal('create')}
-                  className="flex items-center space-x-1.5 px-3.5 py-2 bg-[#22C55E] hover:bg-[#1EAF53] text-black font-semibold text-xs rounded-lg transition-all duration-150 active:scale-[0.98]"
+                  className="flex items-center space-x-1.5 px-3.5 py-2 bg-gradient-to-r from-accent-env to-emerald-600 hover:brightness-110 text-bg-base font-extrabold text-xs rounded-lg transition-all active:scale-[0.98] cursor-pointer shadow-md shadow-accent-env/5"
                 >
                   <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                  <span>New Goal</span>
+                  <span className="uppercase tracking-wider">New Goal</span>
                 </button>
 
                 <button 
@@ -325,10 +311,10 @@ export default function Environmental() {
                     const g = goals.find(x => x.id === selectedGoalId);
                     if (g) openGoalModal('edit', g);
                   }}
-                  className={`flex items-center space-x-1.5 px-3.5 py-2 bg-transparent border border-gray-700 hover:border-gray-500 hover:bg-gray-800/40 text-gray-300 font-semibold text-xs rounded-lg transition-all duration-150 active:scale-[0.98] ${!selectedGoalId ? 'opacity-40 cursor-not-allowed' : ''}`}
+                  className={`flex items-center space-x-1.5 px-3.5 py-2 bg-transparent border border-border-sage hover:border-text-secondary hover:bg-bg-base/40 text-text-primary font-bold text-xs rounded-lg transition-all active:scale-[0.98] ${!selectedGoalId ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
                 >
                   <Pencil className="w-3.5 h-3.5" />
-                  <span>Edit</span>
+                  <span className="uppercase tracking-wider">Edit</span>
                 </button>
 
                 <button 
@@ -336,29 +322,29 @@ export default function Environmental() {
                   onClick={() => {
                     if (selectedGoalId) triggerDeleteConfirm(selectedGoalId);
                   }}
-                  className={`flex items-center space-x-1.5 px-3.5 py-2 bg-transparent border border-red-900/50 hover:border-red-700 hover:bg-red-950/20 text-red-400 font-semibold text-xs rounded-lg transition-all duration-150 active:scale-[0.98] ${!selectedGoalId ? 'opacity-40 cursor-not-allowed' : ''}`}
+                  className={`flex items-center space-x-1.5 px-3.5 py-2 bg-transparent border border-red-900/50 hover:border-red-700 hover:bg-red-950/20 text-red-400 font-bold text-xs rounded-lg transition-all active:scale-[0.98] ${!selectedGoalId ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
                 >
                   <Trash2 className="w-3.5 h-3.5" />
-                  <span>Delete</span>
+                  <span className="uppercase tracking-wider">Delete</span>
                 </button>
 
                 {/* Export Dropdown */}
                 <div className="relative" ref={exportRef}>
                   <button 
                     onClick={() => setIsExportOpen(!isExportOpen)}
-                    className="flex items-center space-x-1.5 px-3.5 py-2 bg-transparent border border-gray-700 hover:border-gray-500 hover:bg-gray-800/40 text-gray-300 font-semibold text-xs rounded-lg transition-all duration-150"
+                    className="flex items-center space-x-1.5 px-3.5 py-2 bg-transparent border border-border-sage hover:border-text-secondary hover:bg-bg-base/40 text-text-primary font-bold text-xs rounded-lg transition-all cursor-pointer"
                   >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Export</span>
-                    <ChevronDown className="w-3.5 h-3.5 text-gray-500" />
+                    <Download className="w-3.5 h-3.5 text-text-secondary" />
+                    <span className="uppercase tracking-wider">Export</span>
+                    <ChevronDown className="w-3.5 h-3.5 text-text-secondary" />
                   </button>
                   {isExportOpen && (
-                    <div className="absolute left-0 mt-1.5 w-32 rounded-xl bg-[#11161D] border border-gray-800 shadow-2xl py-1.5 z-20">
+                    <div className="absolute left-0 mt-1.5 w-36 rounded-xl bg-bg-card border border-border-sage shadow-2xl py-1.5 z-20">
                       {['PDF', 'Excel', 'CSV'].map(fmt => (
                         <button
                           key={fmt}
                           onClick={() => triggerExport(fmt)}
-                          className="w-full text-left px-4 py-2 hover:bg-gray-800/60 text-xs font-semibold text-gray-300 hover:text-white"
+                          className="w-full text-left px-4 py-2 hover:bg-bg-base/60 text-xs font-semibold text-text-primary hover:text-brand"
                         >
                           Export as {fmt}
                         </button>
@@ -370,23 +356,23 @@ export default function Environmental() {
 
               {/* Right search input */}
               <div className="relative w-full sm:w-64">
-                <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-500" />
+                <Search className="absolute left-3 top-2.5 w-4 h-4 text-text-secondary" />
                 <input
                   type="text"
                   placeholder="Search goals..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 bg-[#0B0F14] border border-gray-800 rounded-lg text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:border-emerald-500 transition-colors"
+                  className="w-full pl-9 pr-4 py-2 bg-bg-base border border-border-sage rounded-lg text-xs text-text-primary placeholder-text-secondary/40 focus:outline-none focus:border-accent-env transition-colors"
                 />
               </div>
             </div>
 
             {/* DATA TABLE CONTAINER */}
-            <div className="bg-[#11161D] border border-gray-800/85 rounded-2xl overflow-hidden shadow-lg">
+            <div className="bg-bg-card border border-border-sage rounded-2xl overflow-hidden shadow-lg shadow-brand/5">
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse min-w-[800px]">
                   <thead>
-                    <tr className="bg-[#171D26] border-b border-gray-800 text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                    <tr className="bg-bg-card/85 border-b border-border-sage text-[10px] font-bold text-text-secondary uppercase tracking-wider font-display">
                       <th className="py-4 px-6 w-8"></th>
                       <th className="py-4 px-6">Name</th>
                       <th className="py-4 px-6">Department</th>
@@ -398,22 +384,22 @@ export default function Environmental() {
                       <th className="py-4 px-6 text-center">Row Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-800/60 text-xs text-gray-300">
-                    {filteredGoals.map((goal, index) => {
+                  <tbody className="divide-y divide-border-sage/40 text-xs text-text-primary">
+                    {filteredGoals.map((goal) => {
                       let statusStyle = "";
                       if (goal.status === "Active") {
-                        statusStyle = "bg-blue-500/10 text-blue-400 border border-blue-500/20";
+                        statusStyle = "bg-accent-soc/10 text-accent-soc border border-accent-soc/20";
                       } else if (goal.status === "On Track") {
-                        statusStyle = "bg-amber-500/10 text-amber-400 border border-amber-500/20";
+                        statusStyle = "bg-accent-gam/10 text-accent-gam border border-accent-gam/20";
                       } else if (goal.status === "Completed") {
-                        statusStyle = "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+                        statusStyle = "bg-accent-env/10 text-accent-env border border-accent-env/20";
                       }
 
-                      let progressFillColor = "bg-emerald-500";
+                      let progressFillColor = "bg-gradient-to-r from-accent-env to-emerald-400";
                       if (goal.progress < 80) {
-                        progressFillColor = "bg-blue-500";
+                        progressFillColor = "bg-gradient-to-r from-accent-soc to-blue-400";
                       } else if (goal.progress < 90) {
-                        progressFillColor = "bg-amber-500";
+                        progressFillColor = "bg-gradient-to-r from-accent-gam to-amber-500";
                       }
 
                       const isSelected = selectedGoalId === goal.id;
@@ -421,7 +407,7 @@ export default function Environmental() {
                       return (
                         <tr 
                           key={goal.id} 
-                          className={`hover:bg-gray-800/15 transition-colors duration-150 group cursor-pointer ${isSelected ? 'bg-emerald-500/5 hover:bg-emerald-500/10' : ''}`}
+                          className={`hover:bg-bg-base/30 transition-colors duration-150 group cursor-pointer ${isSelected ? 'bg-accent-env/5 hover:bg-accent-env/10' : ''}`}
                           onClick={() => setSelectedGoalId(isSelected ? null : goal.id)}
                         >
                           <td className="py-4 px-6 text-center">
@@ -429,13 +415,13 @@ export default function Environmental() {
                               type="checkbox"
                               checked={isSelected}
                               onChange={() => {}} // toggled on row click
-                              className="rounded border-gray-700 bg-gray-800 text-emerald-500 focus:ring-0 focus:ring-offset-0"
+                              className="rounded border-border-sage bg-bg-base text-accent-env focus:ring-0 focus:ring-offset-0"
                             />
                           </td>
-                          <td className="py-4 px-6 font-semibold text-white group-hover:text-emerald-400 transition-colors">
+                          <td className="py-4 px-6 font-bold text-text-primary group-hover:text-accent-env transition-colors font-display">
                             {goal.name}
                           </td>
-                          <td className="py-4 px-6 text-gray-400 font-medium">
+                          <td className="py-4 px-6 text-text-secondary font-semibold">
                             {goal.department}
                           </td>
                           <td className="py-4 px-6 text-right font-mono font-medium">
@@ -446,22 +432,22 @@ export default function Environmental() {
                           </td>
                           <td className="py-4 px-6">
                             <div className="flex items-center space-x-3">
-                              <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
+                              <div className="flex-1 h-1.5 bg-bg-base rounded-full overflow-hidden">
                                 <div 
                                   className={`h-full ${progressFillColor} rounded-full transition-all duration-500`}
                                   style={{ width: `${goal.progress}%` }}
                                 ></div>
                               </div>
-                              <span className="text-[11px] font-bold text-white min-w-[28px] text-right">
+                              <span className="text-[10px] font-extrabold text-text-primary min-w-[28px] text-right font-mono">
                                 {goal.progress}%
                               </span>
                             </div>
                           </td>
-                          <td className="py-4 px-6 text-gray-400 font-mono">
+                          <td className="py-4 px-6 text-text-secondary font-mono">
                             {goal.deadline}
                           </td>
                           <td className="py-4 px-6">
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${statusStyle}`}>
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${statusStyle}`}>
                               {goal.status}
                             </span>
                           </td>
@@ -469,19 +455,19 @@ export default function Environmental() {
                             <div className="flex items-center justify-center space-x-2">
                               <button 
                                 onClick={() => openGoalModal('view', goal)}
-                                className="p-1.5 rounded bg-gray-800/40 hover:bg-gray-800 text-gray-400 hover:text-white transition-colors"
+                                className="p-1.5 rounded bg-bg-base/60 hover:bg-bg-base text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
                               >
                                 <Eye className="w-3.5 h-3.5" />
                               </button>
                               <button 
                                 onClick={() => openGoalModal('edit', goal)}
-                                className="p-1.5 rounded bg-gray-800/40 hover:bg-emerald-500/10 text-gray-400 hover:text-emerald-400 transition-colors"
+                                className="p-1.5 rounded bg-bg-base/60 hover:bg-accent-env/10 text-text-secondary hover:text-accent-env transition-colors cursor-pointer"
                               >
                                 <Pencil className="w-3.5 h-3.5" />
                               </button>
                               <button 
                                 onClick={() => triggerDeleteConfirm(goal.id)}
-                                className="p-1.5 rounded bg-gray-800/40 hover:bg-red-500/10 text-gray-400 hover:text-red-400 transition-colors"
+                                className="p-1.5 rounded bg-bg-base/60 hover:bg-red-500/10 text-text-secondary hover:text-red-400 transition-colors cursor-pointer"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
@@ -502,42 +488,42 @@ export default function Environmental() {
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-xl font-bold text-white tracking-tight font-sans">Emission Factors</h2>
-                <p className="text-xs text-gray-400 mt-1">Review standard greenhouse gas emission factors utilized in footprint accounting.</p>
+                <h2 className="text-xl font-bold font-display text-text-primary tracking-tight">Emission Factors</h2>
+                <p className="text-xs text-text-secondary mt-1">Review standard greenhouse gas emission factors utilized in footprint accounting.</p>
               </div>
               <button
                 onClick={() => {
                   setFactorFormData({ name: '', category: 'Scope 1', value: '', source: '' });
                   setIsFactorModalOpen(true);
                 }}
-                className="flex items-center space-x-1.5 px-3.5 py-2 bg-[#22C55E] hover:bg-[#1EAF53] text-black font-semibold text-xs rounded-lg transition-colors"
+                className="flex items-center space-x-1.5 px-3.5 py-2 bg-gradient-to-r from-accent-env to-emerald-600 hover:brightness-110 text-bg-base font-extrabold text-xs rounded-lg transition-colors cursor-pointer shadow-md shadow-accent-env/5"
               >
                 <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                <span>New Factor</span>
+                <span className="uppercase tracking-wider">New Factor</span>
               </button>
             </div>
 
-            <div className="bg-[#11161D] border border-gray-800 rounded-2xl overflow-hidden">
-              <table className="w-full text-left border-collapse">
+            <div className="bg-bg-card border border-border-sage rounded-2xl overflow-hidden shadow-lg shadow-brand/5">
+              <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="bg-[#171D26] border-b border-gray-800 text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                  <tr className="bg-bg-card/85 border-b border-border-sage text-[10px] font-bold text-text-secondary uppercase tracking-wider font-display">
                     <th className="py-4 px-6">Name</th>
                     <th className="py-4 px-6">Category</th>
                     <th className="py-4 px-6">Factor Value</th>
                     <th className="py-4 px-6">DataSource</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-800/60 text-xs text-gray-300">
+                <tbody className="divide-y divide-border-sage/40 text-text-primary">
                   {filteredFactors.map(f => (
-                    <tr key={f.id} className="hover:bg-gray-800/10">
-                      <td className="py-4 px-6 font-semibold text-white">{f.name}</td>
+                    <tr key={f.id} className="hover:bg-bg-base/20 transition-colors">
+                      <td className="py-4 px-6 font-bold text-text-primary font-display">{f.name}</td>
                       <td className="py-4 px-6">
-                        <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${f.category === 'Scope 1' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' : 'bg-purple-500/10 text-purple-400 border border-purple-500/20'}`}>
+                        <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold ${f.category === 'Scope 1' ? 'bg-accent-gam/10 text-accent-gam border border-accent-gam/20' : 'bg-accent-gov/10 text-accent-gov border border-accent-gov/20'}`}>
                           {f.category}
                         </span>
                       </td>
-                      <td className="py-4 px-6 font-mono font-medium text-emerald-400">{f.value}</td>
-                      <td className="py-4 px-6 text-gray-500 font-medium">{f.source}</td>
+                      <td className="py-4 px-6 font-mono font-bold text-accent-env">{f.value}</td>
+                      <td className="py-4 px-6 text-text-secondary font-semibold">{f.source}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -551,38 +537,38 @@ export default function Environmental() {
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-xl font-bold text-white tracking-tight">Product ESG Profiles</h2>
-                <p className="text-xs text-gray-400 mt-1">Lifecycle greenhouse emissions and circularity analytics mapped per core product.</p>
+                <h2 className="text-xl font-bold font-display text-text-primary tracking-tight">Product ESG Profiles</h2>
+                <p className="text-xs text-text-secondary mt-1">Lifecycle greenhouse emissions and circularity analytics mapped per core product.</p>
               </div>
               <button
                 onClick={() => {
                   setProfileFormData({ name: '', carbonFootprint: '', recyclability: '', certification: '' });
                   setIsProfileModalOpen(true);
                 }}
-                className="flex items-center space-x-1.5 px-3.5 py-2 bg-[#22C55E] hover:bg-[#1EAF53] text-black font-semibold text-xs rounded-lg transition-colors"
+                className="flex items-center space-x-1.5 px-3.5 py-2 bg-gradient-to-r from-accent-env to-emerald-600 hover:brightness-110 text-bg-base font-extrabold text-xs rounded-lg transition-colors cursor-pointer shadow-md shadow-accent-env/5"
               >
                 <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                <span>New Product Profile</span>
+                <span className="uppercase tracking-wider">New Profile</span>
               </button>
             </div>
 
-            <div className="bg-[#11161D] border border-gray-800 rounded-2xl overflow-hidden">
-              <table className="w-full text-left border-collapse">
+            <div className="bg-bg-card border border-border-sage rounded-2xl overflow-hidden shadow-lg shadow-brand/5">
+              <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="bg-[#171D26] border-b border-gray-800 text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                  <tr className="bg-bg-card/85 border-b border-border-sage text-[10px] font-bold text-text-secondary uppercase tracking-wider font-display">
                     <th className="py-4 px-6">Product Model</th>
                     <th className="py-4 px-6">Emissions Footprint</th>
                     <th className="py-4 px-6">Recyclability Rate</th>
                     <th className="py-4 px-6">Eco-Certifications</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-800/60 text-xs text-gray-300">
+                <tbody className="divide-y divide-border-sage/40 text-text-primary">
                   {filteredProfiles.map(p => (
-                    <tr key={p.id} className="hover:bg-gray-800/10">
-                      <td className="py-4 px-6 font-semibold text-white">{p.name}</td>
-                      <td className="py-4 px-6 font-mono text-amber-500 font-medium">{p.carbonFootprint}</td>
-                      <td className="py-4 px-6 font-mono text-emerald-400 font-medium">{p.recyclability}</td>
-                      <td className="py-4 px-6 font-medium text-cyan-400">{p.certification}</td>
+                    <tr key={p.id} className="hover:bg-bg-base/20 transition-colors">
+                      <td className="py-4 px-6 font-bold text-text-primary font-display">{p.name}</td>
+                      <td className="py-4 px-6 font-mono text-accent-gam font-semibold">{p.carbonFootprint}</td>
+                      <td className="py-4 px-6 font-mono text-accent-env font-bold">{p.recyclability}</td>
+                      <td className="py-4 px-6 font-bold text-accent-rep">{p.certification}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -596,25 +582,25 @@ export default function Environmental() {
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-xl font-bold text-white tracking-tight">Carbon Transactions</h2>
-                <p className="text-xs text-gray-400 mt-1">Audit log of carbon credit purchases, emissions events, and compliance balance sheets.</p>
+                <h2 className="text-xl font-bold font-display text-text-primary tracking-tight">Carbon Transactions</h2>
+                <p className="text-xs text-text-secondary mt-1">Audit log of carbon credit purchases, emissions events, and compliance balance sheets.</p>
               </div>
               <button
                 onClick={() => {
                   setTxFormData({ desc: '', type: 'Emission', amount: '', cost: '' });
                   setIsTxModalOpen(true);
                 }}
-                className="flex items-center space-x-1.5 px-3.5 py-2 bg-[#22C55E] hover:bg-[#1EAF53] text-black font-semibold text-xs rounded-lg transition-colors"
+                className="flex items-center space-x-1.5 px-3.5 py-2 bg-gradient-to-r from-accent-env to-emerald-600 hover:brightness-110 text-bg-base font-extrabold text-xs rounded-lg transition-colors cursor-pointer shadow-md shadow-accent-env/5"
               >
                 <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                <span>Log Transaction</span>
+                <span className="uppercase tracking-wider">Log Transaction</span>
               </button>
             </div>
 
-            <div className="bg-[#11161D] border border-gray-800 rounded-2xl overflow-hidden">
-              <table className="w-full text-left border-collapse">
+            <div className="bg-bg-card border border-border-sage rounded-2xl overflow-hidden shadow-lg shadow-brand/5">
+              <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="bg-[#171D26] border-b border-gray-800 text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                  <tr className="bg-bg-card/85 border-b border-border-sage text-[10px] font-bold text-text-secondary uppercase tracking-wider font-display">
                     <th className="py-4 px-6">Timestamp</th>
                     <th className="py-4 px-6">Description</th>
                     <th className="py-4 px-6">Classification</th>
@@ -622,20 +608,20 @@ export default function Environmental() {
                     <th className="py-4 px-6 text-right">Value Equivalent</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-800/60 text-xs text-gray-300">
+                <tbody className="divide-y divide-border-sage/40 text-text-primary">
                   {filteredTransactions.map(t => (
-                    <tr key={t.id} className="hover:bg-gray-800/10">
-                      <td className="py-4 px-6 font-mono text-gray-500">{t.date}</td>
-                      <td className="py-4 px-6 font-semibold text-white">{t.desc}</td>
+                    <tr key={t.id} className="hover:bg-bg-base/20 transition-colors">
+                      <td className="py-4 px-6 font-mono text-text-secondary">{t.date}</td>
+                      <td className="py-4 px-6 font-bold text-text-primary font-display">{t.desc}</td>
                       <td className="py-4 px-6">
-                        <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${t.type === 'Credit' || t.type === 'Offset' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
+                        <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold ${t.type === 'Credit' || t.type === 'Offset' ? 'bg-accent-env/10 text-accent-env border border-accent-env/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
                           {t.type}
                         </span>
                       </td>
-                      <td className={`py-4 px-6 text-right font-mono font-bold ${t.type === 'Credit' || t.type === 'Offset' ? 'text-emerald-400' : 'text-red-400'}`}>
+                      <td className={`py-4 px-6 text-right font-mono font-bold ${t.type === 'Credit' || t.type === 'Offset' ? 'text-accent-env' : 'text-red-400'}`}>
                         {t.amount}
                       </td>
-                      <td className="py-4 px-6 text-right font-mono text-gray-400 font-semibold">{t.cost}</td>
+                      <td className="py-4 px-6 text-right font-mono text-text-secondary font-semibold">{t.cost}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -651,29 +637,29 @@ export default function Environmental() {
         onClose={() => setIsGoalModalOpen(false)}
         title={goalModalMode === 'create' ? 'Create Environmental Goal' : goalModalMode === 'edit' ? 'Edit Environmental Goal' : 'Goal Details'}
         confirmText={goalModalMode === 'view' ? null : goalModalMode === 'create' ? 'Create Goal' : 'Save Changes'}
-        confirmColorClass="bg-[#22C55E] hover:bg-[#1EAF53] text-black font-bold"
+        confirmColorClass="bg-accent-env hover:bg-emerald-600 text-bg-base font-bold"
         onConfirm={goalModalMode === 'view' ? null : handleGoalSubmit}
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Goal Name</label>
+            <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Goal Name</label>
             <input
               type="text"
               disabled={goalModalMode === 'view'}
               value={currentGoalData.name}
               onChange={(e) => setCurrentGoalData({ ...currentGoalData, name: e.target.value })}
               placeholder="e.g. Reduce Logistics fuel emissions"
-              className="w-full bg-[#0B0F14] border border-gray-800 rounded-lg p-2 text-xs text-gray-300 focus:outline-none focus:border-emerald-500 disabled:opacity-60"
+              className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary placeholder-text-secondary/40 focus:outline-none focus:border-accent-env disabled:opacity-60"
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Department</label>
+              <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Department</label>
               <select
                 disabled={goalModalMode === 'view'}
                 value={currentGoalData.department}
                 onChange={(e) => setCurrentGoalData({ ...currentGoalData, department: e.target.value })}
-                className="w-full bg-[#0B0F14] border border-gray-800 rounded-lg p-2 text-xs text-gray-300 focus:outline-none focus:border-emerald-500 disabled:opacity-60"
+                className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary focus:outline-none focus:border-accent-env disabled:opacity-60"
               >
                 <option>Logistics</option>
                 <option>Manufacturing</option>
@@ -683,40 +669,40 @@ export default function Environmental() {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Target CO₂ (t)</label>
+              <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Target CO₂ (t)</label>
               <input
                 type="number"
                 disabled={goalModalMode === 'view'}
                 value={currentGoalData.targetCo2Input || ''}
                 onChange={(e) => setCurrentGoalData({ ...currentGoalData, targetCo2Input: e.target.value })}
                 placeholder="e.g. 500"
-                className="w-full bg-[#0B0F14] border border-gray-800 rounded-lg p-2 text-xs text-gray-300 focus:outline-none focus:border-emerald-500 disabled:opacity-60"
+                className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary placeholder-text-secondary/40 focus:outline-none focus:border-accent-env disabled:opacity-60"
               />
             </div>
           </div>
           
           {goalModalMode !== 'create' && (
             <div>
-              <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Current CO₂ (t)</label>
+              <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Current CO₂ (t)</label>
               <input
                 type="number"
                 disabled={goalModalMode === 'view'}
                 value={currentGoalData.currentCo2Input || ''}
                 onChange={(e) => setCurrentGoalData({ ...currentGoalData, currentCo2Input: e.target.value })}
                 placeholder="e.g. 390"
-                className="w-full bg-[#0B0F14] border border-gray-800 rounded-lg p-2 text-xs text-gray-300 focus:outline-none focus:border-emerald-500 disabled:opacity-60"
+                className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary placeholder-text-secondary/40 focus:outline-none focus:border-accent-env disabled:opacity-60"
               />
             </div>
           )}
 
           <div>
-            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Deadline</label>
+            <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Deadline</label>
             <input
               type="date"
               disabled={goalModalMode === 'view'}
               value={currentGoalData.deadline}
               onChange={(e) => setCurrentGoalData({ ...currentGoalData, deadline: e.target.value })}
-              className="w-full bg-[#0B0F14] border border-gray-800 rounded-lg p-2 text-xs text-[#9CA3AF] focus:outline-none focus:border-emerald-500 disabled:opacity-60"
+              className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary focus:outline-none focus:border-accent-env disabled:opacity-60"
             />
           </div>
         </div>
@@ -731,7 +717,7 @@ export default function Environmental() {
         confirmColorClass="bg-red-500 hover:bg-red-600 text-white font-bold"
         onConfirm={handleConfirmDelete}
       >
-        <p className="text-xs text-gray-300">Are you sure you want to delete this goal? This operation cannot be undone.</p>
+        <p className="text-xs text-text-primary">Are you sure you want to delete this goal? This operation cannot be undone.</p>
       </Modal>
 
       {/* --- SUB-TAB ADD MODALS --- */}
@@ -741,26 +727,26 @@ export default function Environmental() {
         onClose={() => setIsFactorModalOpen(false)}
         title="New Emission Factor"
         confirmText="Add Factor"
-        confirmColorClass="bg-[#22C55E] hover:bg-[#1EAF53] text-black font-bold"
+        confirmColorClass="bg-accent-env hover:bg-emerald-600 text-bg-base font-bold"
         onConfirm={handleFactorSubmit}
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Factor Name</label>
+            <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Factor Name</label>
             <input
               type="text"
               value={factorFormData.name}
               onChange={(e) => setFactorFormData({ ...factorFormData, name: e.target.value })}
               placeholder="e.g. Coal power plant coefficient"
-              className="w-full bg-[#0B0F14] border border-gray-800 rounded-lg p-2 text-xs text-gray-300 focus:outline-none focus:border-emerald-500"
+              className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary placeholder-text-secondary/40 focus:outline-none focus:border-accent-env"
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Category</label>
+            <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Category</label>
             <select
               value={factorFormData.category}
               onChange={(e) => setFactorFormData({ ...factorFormData, category: e.target.value })}
-              className="w-full bg-[#0B0F14] border border-gray-800 rounded-lg p-2 text-xs text-gray-300 focus:outline-none"
+              className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary focus:outline-none focus:border-accent-env"
             >
               <option>Scope 1</option>
               <option>Scope 2</option>
@@ -768,23 +754,23 @@ export default function Environmental() {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Value</label>
+            <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Value</label>
             <input
               type="text"
               value={factorFormData.value}
               onChange={(e) => setFactorFormData({ ...factorFormData, value: e.target.value })}
               placeholder="e.g. 0.95 kg/kWh"
-              className="w-full bg-[#0B0F14] border border-gray-800 rounded-lg p-2 text-xs text-gray-300 focus:outline-none"
+              className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary placeholder-text-secondary/40 focus:outline-none focus:border-accent-env"
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Data Source</label>
+            <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Data Source</label>
             <input
               type="text"
               value={factorFormData.source}
               onChange={(e) => setFactorFormData({ ...factorFormData, source: e.target.value })}
               placeholder="e.g. IEA 2025"
-              className="w-full bg-[#0B0F14] border border-gray-800 rounded-lg p-2 text-xs text-gray-300 focus:outline-none"
+              className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary placeholder-text-secondary/40 focus:outline-none focus:border-accent-env"
             />
           </div>
         </div>
@@ -796,48 +782,48 @@ export default function Environmental() {
         onClose={() => setIsProfileModalOpen(false)}
         title="New Product ESG Profile"
         confirmText="Create Profile"
-        confirmColorClass="bg-[#22C55E] hover:bg-[#1EAF53] text-black font-bold"
+        confirmColorClass="bg-accent-env hover:bg-emerald-600 text-bg-base font-bold"
         onConfirm={handleProfileSubmit}
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Product Name</label>
+            <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Product Name</label>
             <input
               type="text"
               value={profileFormData.name}
               onChange={(e) => setProfileFormData({ ...profileFormData, name: e.target.value })}
               placeholder="e.g. EcoMonitor Lite"
-              className="w-full bg-[#0B0F14] border border-gray-800 rounded-lg p-2 text-xs text-gray-300 focus:outline-none"
+              className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary placeholder-text-secondary/40 focus:outline-none focus:border-accent-env"
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Footprint (kg CO2e)</label>
+            <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Footprint (kg CO2e)</label>
             <input
               type="text"
               value={profileFormData.carbonFootprint}
               onChange={(e) => setProfileFormData({ ...profileFormData, carbonFootprint: e.target.value })}
               placeholder="e.g. 5.6 kg CO2e"
-              className="w-full bg-[#0B0F14] border border-gray-800 rounded-lg p-2 text-xs text-gray-300 focus:outline-none"
+              className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary placeholder-text-secondary/40 focus:outline-none focus:border-accent-env"
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Recyclability Rate</label>
+            <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Recyclability Rate</label>
             <input
               type="text"
               value={profileFormData.recyclability}
               onChange={(e) => setProfileFormData({ ...profileFormData, recyclability: e.target.value })}
               placeholder="e.g. 85%"
-              className="w-full bg-[#0B0F14] border border-gray-800 rounded-lg p-2 text-xs text-gray-300 focus:outline-none"
+              className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary placeholder-text-secondary/40 focus:outline-none focus:border-accent-env"
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Certifications</label>
+            <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Certifications</label>
             <input
               type="text"
               value={profileFormData.certification}
               onChange={(e) => setProfileFormData({ ...profileFormData, certification: e.target.value })}
               placeholder="e.g. EPEAT Gold"
-              className="w-full bg-[#0B0F14] border border-gray-800 rounded-lg p-2 text-xs text-gray-300 focus:outline-none"
+              className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary placeholder-text-secondary/40 focus:outline-none focus:border-accent-env"
             />
           </div>
         </div>
@@ -849,26 +835,26 @@ export default function Environmental() {
         onClose={() => setIsTxModalOpen(false)}
         title="Log Carbon Transaction"
         confirmText="Log Transaction"
-        confirmColorClass="bg-[#22C55E] hover:bg-[#1EAF53] text-black font-bold"
+        confirmColorClass="bg-accent-env hover:bg-emerald-600 text-bg-base font-bold"
         onConfirm={handleTxSubmit}
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Description</label>
+            <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Description</label>
             <input
               type="text"
               value={txFormData.desc}
               onChange={(e) => setTxFormData({ ...txFormData, desc: e.target.value })}
               placeholder="e.g. Q3 Fleet Offsets"
-              className="w-full bg-[#0B0F14] border border-gray-800 rounded-lg p-2 text-xs text-gray-300 focus:outline-none"
+              className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary placeholder-text-secondary/40 focus:outline-none focus:border-accent-env"
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Transaction Type</label>
+            <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Transaction Type</label>
             <select
               value={txFormData.type}
               onChange={(e) => setTxFormData({ ...txFormData, type: e.target.value })}
-              className="w-full bg-[#0B0F14] border border-gray-800 rounded-lg p-2 text-xs text-gray-300"
+              className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary focus:outline-none focus:border-accent-env"
             >
               <option>Emission</option>
               <option>Credit</option>
@@ -876,23 +862,23 @@ export default function Environmental() {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Volume (tCO2e)</label>
+            <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Volume (tCO2e)</label>
             <input
               type="text"
               value={txFormData.amount}
               onChange={(e) => setTxFormData({ ...txFormData, amount: e.target.value })}
               placeholder="e.g. +240 tCO2e"
-              className="w-full bg-[#0B0F14] border border-gray-800 rounded-lg p-2 text-xs text-gray-300 focus:outline-none"
+              className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary placeholder-text-secondary/40 focus:outline-none focus:border-accent-env"
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Cost / Value Equivalent</label>
+            <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Cost / Value Equivalent</label>
             <input
               type="text"
               value={txFormData.cost}
               onChange={(e) => setTxFormData({ ...txFormData, cost: e.target.value })}
               placeholder="e.g. $2,800"
-              className="w-full bg-[#0B0F14] border border-gray-800 rounded-lg p-2 text-xs text-gray-300 focus:outline-none"
+              className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary placeholder-text-secondary/40 focus:outline-none focus:border-accent-env"
             />
           </div>
         </div>
