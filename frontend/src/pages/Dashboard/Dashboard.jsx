@@ -1,15 +1,32 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../../context/ToastContext';
 import { useAuth } from '../../context/AuthContext';
 import { TERMS } from '../../constants/terminology';
 import { 
+  getStorageItem, 
+  setStorageItem, 
+  triggerPointsAndBadgeUnlocks 
+} from '../../utils/storage';
+import { 
+  calculateCO2, 
+  calculateGoalProgress, 
+  getGoalStatus,
+  calculateDepartmentScores,
+  calculateTotalScore,
+  calculateOverallOrgScore
+} from '../../utils/calculations';
+import {
   dashboardService,
-  reportService,
+  departmentService,
+  goalService,
+  carbonTransactionService,
+  emissionFactorService,
   challengeService,
+  complianceService,
+  auditService,
+  policyService,
   dropdownService,
-  productProfileService,
-  carbonTransactionService
 } from '../../services/api';
 import Modal from '../../components/Modal';
 import { 
@@ -28,7 +45,7 @@ import {
   ArrowUpRight, 
   Activity,
   Lock,
-  Loader
+  Loader2
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -47,20 +64,15 @@ export default function Dashboard() {
   const { user, canEdit, canAccess, createNotification } = useAuth();
   const navigate = useNavigate();
 
-  // Loading and Dynamic data states
-  const [isLoading, setIsLoading] = useState(true);
-  const [scoresData, setScoresData] = useState({
-    overallScore: 0,
-    environmentalScore: 0,
-    socialScore: 0,
-    governanceScore: 0,
-  });
-  const [chartEmissions, setChartEmissions] = useState([]);
-  const [departmentScores, setDepartmentScores] = useState([]);
-  const [challengesList, setChallengesList] = useState([]);
-  const [myParticipations, setMyParticipations] = useState([]);
-  const [recentActivities, setRecentActivities] = useState([]);
+  // DB States
   const [departments, setDepartments] = useState([]);
+  const [goals, setGoals] = useState([]);
+  const [emissionsData, setEmissionsData] = useState([]);
+  const [challengesList, setChallengesList] = useState([]);
+  const [factors, setFactors] = useState([]);
+  const [complianceIssues, setComplianceIssues] = useState([]);
+  const [audits, setAudits] = useState([]);
+  const [policies, setPolicies] = useState([]);
   const [products, setProducts] = useState([]);
 
   // Modals state
@@ -68,110 +80,176 @@ export default function Dashboard() {
   const [isChallengeModalOpen, setIsChallengeModalOpen] = useState(false);
 
   // Carbon form state
-  const [carbonDeptId, setCarbonDeptId] = useState('');
+  const [carbonDept, setCarbonDept] = useState('');
   const [selectedProductId, setSelectedProductId] = useState('');
   const [carbonQty, setCarbonQty] = useState('');
   const [carbonDate, setCarbonDate] = useState(new Date().toISOString().split('T')[0]);
 
-  // Selected factor details
-  const currentProduct = products.find(p => p.id === selectedProductId) || products[0];
-  const calculatedEmissions = currentProduct ? (parseFloat(carbonQty) || 0) * (currentProduct.emissionFactorValue || 0) : 0;
+  // Loading state
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch dynamic data
-  const fetchDashboardData = useCallback(async () => {
-    setIsLoading(true);
+  // Scores state
+  const [scoresData, setScoresData] = useState({
+    environmentalScore: 75,
+    socialScore: 80,
+    governanceScore: 85,
+    overallScore: 80,
+    deptScores: {},
+  });
+
+  const [emissionsChartData, setEmissionsChartData] = useState([]);
+  const [departmentScores, setDepartmentScores] = useState([]);
+
+  // Live preview calculation details
+  const selectedProdObj = products.find(p => (p._id || p.id) === selectedProductId);
+  const linkedFactor = selectedProdObj && factors.find(f => (f._id || f.id) === (selectedProdObj.emissionFactor?._id || selectedProdObj.emissionFactor || selectedProdObj.emissionFactorId));
+  const calculatedEmissions = linkedFactor ? (parseFloat(carbonQty) * parseFloat(linkedFactor.emissionValue || linkedFactor.factorValue || 0)) : 0;
+
+  // Load dashboard data directly from MongoDB
+  const loadDashboardData = async () => {
     try {
-      const [esgRes, envRes, chRes, deptsRes, prodsRes, partRes] = await Promise.allSettled([
-        reportService.getEsgSummary(),
-        reportService.getEnvironmental(),
+      setIsLoading(true);
+      const [depts, gls, txs, chs, comps, auds, pols, prds, factList] = await Promise.all([
+        departmentService.getAll(),
+        goalService.getAll(),
+        carbonTransactionService.getAll(),
         challengeService.getAll(),
-        dropdownService.getDepartments(),
-        productProfileService.getAll(),
-        challengeService.getParticipants ? challengeService.getParticipants() : Promise.resolve([])
+        complianceService.getAll(),
+        auditService.getAll(),
+        policyService.getAll(),
+        dropdownService.getProducts(),
+        emissionFactorService.getAll(),
       ]);
 
-      if (esgRes.status === 'fulfilled') {
-        const data = esgRes.value;
-        setScoresData({
-          overallScore: data.overallScore || 0,
-          environmentalScore: data.environmentalScore || 0,
-          socialScore: data.socialScore || 0,
-          governanceScore: data.governanceScore || 0,
+      setDepartments(depts);
+      setGoals(gls);
+      setEmissionsData(txs);
+      setChallengesList(chs);
+      setComplianceIssues(comps);
+      setAudits(auds);
+      setPolicies(pols);
+      setProducts(prds);
+      setFactors(factList);
+
+      // Default dropdown values
+      if (depts.length > 0) setCarbonDept(depts[0]._id || depts[0].id);
+      if (prds.length > 0) setSelectedProductId(prds[0].id);
+
+      // 1. Calculate Department Wise Scores
+      const deptScores = {};
+      depts.forEach((d) => {
+        const name = d.name;
+        // Map data structures for calculations
+        const mappedGoals = gls
+          .filter((g) => {
+            const gDeptName = typeof g.department === 'object' ? g.department.name : g.department;
+            return gDeptName === name;
+          })
+          .map((g) => ({
+            department: name,
+            currentCO2: g.currentValue || 0,
+            targetCO2: g.targetValue || 1,
+          }));
+
+        const mappedCompliance = comps
+          .filter((c) => {
+            const cDeptName = typeof c.department === 'object' ? c.department.name : c.department;
+            return cDeptName === name;
+          })
+          .map((c) => ({
+            department: name,
+            status: c.status,
+          }));
+
+        const mappedPolicies = pols.map((p) => ({ id: p._id }));
+        const mappedParts = [];
+
+        const scores = calculateDepartmentScores(name, {
+          goals: mappedGoals,
+          participations: mappedParts,
+          policies: mappedPolicies,
+          complianceIssues: mappedCompliance,
         });
 
-        // Set department ranking chart data
-        const rankings = data.charts?.departmentRankings || [];
-        const mappedRankings = rankings.map(item => {
-          let color = 'var(--color-accent-env)';
-          if (item.department === 'Logistics') color = 'var(--color-accent-gam)';
-          if (item.department === 'Corporate') color = 'var(--color-accent-gov)';
-          if (item.department === 'R&D') color = 'var(--color-accent-soc)';
-          return {
-            name: item.department.slice(0, 4),
-            score: item.Score,
-            color: color
-          };
-        });
-        setDepartmentScores(mappedRankings);
+        const total = calculateTotalScore(scores);
 
-        setRecentActivities(data.recentActivities || []);
-      }
+        deptScores[name] = {
+          environmental: scores.environmentalScore,
+          social: scores.socialScore,
+          governance: scores.governanceScore,
+          total: total,
+        };
+      });
 
-      if (envRes.status === 'fulfilled') {
-        const envData = envRes.value;
-        const trend = envData.charts?.monthlyTrend || [];
-        setChartEmissions(trend.map(item => ({
-          name: item.month,
-          Emissions: item.Carbon
-        })));
-      }
+      // Calculate overall organizational metrics
+      const deptTotals = Object.values(deptScores);
+      const envAvg = deptTotals.length > 0
+        ? Math.round(deptTotals.reduce((sum, d) => sum + d.environmental, 0) / deptTotals.length)
+        : 75;
+      const socAvg = deptTotals.length > 0
+        ? Math.round(deptTotals.reduce((sum, d) => sum + d.social, 0) / deptTotals.length)
+        : 80;
+      const govAvg = deptTotals.length > 0
+        ? Math.round(deptTotals.reduce((sum, d) => sum + d.governance, 0) / deptTotals.length)
+        : 85;
 
-      if (chRes.status === 'fulfilled') {
-        setChallengesList(chRes.value);
-      }
+      const totalAvg = Math.round((envAvg * 0.4) + (socAvg * 0.3) + (govAvg * 0.3));
 
-      if (partRes.status === 'fulfilled' && user?._id) {
-        const parts = partRes.value;
-        const mine = parts.filter(p => p.employeeId?._id === user._id || p.employeeId === user._id);
-        setMyParticipations(mine.map(p => p.challengeId?._id || p.challengeId));
-      }
+      setScoresData({
+        environmentalScore: envAvg,
+        socialScore: socAvg,
+        governanceScore: govAvg,
+        overallScore: totalAvg,
+        deptScores,
+      });
 
-      if (deptsRes.status === 'fulfilled') {
-        const depts = deptsRes.value;
-        setDepartments(depts);
-        if (depts.length > 0 && !carbonDeptId) {
-          setCarbonDeptId(depts[0].id);
+      // 2. Map dynamic department scores to bar chart
+      const barData = depts.map((d) => {
+        const deptScore = deptScores[d.name]?.total || 75;
+        let color = 'var(--color-accent-env)';
+        if (d.name === 'Logistics') color = 'var(--color-accent-gam)';
+        if (d.name === 'Corporate') color = 'var(--color-accent-gov)';
+        if (d.name === 'R&D') color = 'var(--color-accent-soc)';
+        return {
+          name: d.name.slice(0, 4),
+          score: deptScore,
+          color: color,
+        };
+      });
+      setDepartmentScores(barData);
+
+      // 3. Map Carbon Emissions by Month
+      const monthlyEmissions = Array(12).fill(0);
+      txs.forEach((t) => {
+        if (t.transactionDate) {
+          const m = new Date(t.transactionDate).getMonth();
+          if (m >= 0 && m < 12) {
+            monthlyEmissions[m] += t.calculatedEmission || 0;
+          }
         }
-      }
+      });
 
-      if (prodsRes.status === 'fulfilled') {
-        const mappedProds = prodsRes.value.map(p => ({
-          id: p._id,
-          name: p.productName,
-          emissionFactorValue: p.emissionFactor?.emissionValue || 0,
-          unit: p.emissionFactor?.co2Unit || 'kg CO2e'
-        }));
-        setProducts(mappedProds);
-        if (mappedProds.length > 0 && !selectedProductId) {
-          setSelectedProductId(mappedProds[0].id);
-        }
-      }
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const chartData = months.map((m, idx) => ({
+        name: m,
+        Emissions: parseFloat(monthlyEmissions[idx].toFixed(2)),
+      }));
+      setEmissionsChartData(chartData);
 
     } catch (err) {
-      console.error(err);
-      showToast("Error fetching dashboard data", "error");
+      console.error('Failed to load dashboard data:', err);
     } finally {
       setIsLoading(false);
     }
-  }, [showToast, user?._id]);
+  };
 
   useEffect(() => {
-    fetchDashboardData();
-  }, [fetchDashboardData]);
+    loadDashboardData();
+  }, []);
 
   const handleCarbonSubmit = async (e) => {
     e.preventDefault();
-    if (!carbonQty || !carbonDate) {
+    if (!carbonQty || !carbonDate || !carbonDept || !selectedProductId) {
       showToast("Please fill in all carbon data fields.", "error");
       return;
     }
@@ -181,35 +259,24 @@ export default function Dashboard() {
       return;
     }
 
-    showToast("Processing carbon entry...", "info");
-    
     try {
       const payload = {
-        department: carbonDeptId,
+        department: carbonDept,
         productESGProfile: selectedProductId,
+        activityType: 'MANUFACTURING',
         quantity: parseFloat(carbonQty),
-        transactionDate: new Date(carbonDate).toISOString(),
-        activityType: 'Emission',
-        remarks: `Logged emissions via ${currentProduct?.name || 'Product'}`
+        transactionDate: carbonDate,
+        remarks: `Logged emissions via main dashboard Quick Actions`,
       };
-      
+
       await carbonTransactionService.create(payload);
-
-      // Create Notification
-      if (createNotification) {
-        createNotification(
-          user?.id || 'all', 
-          'info', 
-          `New Carbon transaction logged. Goal progress updated.`
-        );
-      }
-
+      
       showToast("Carbon data logged successfully!", "success");
       setIsCarbonModalOpen(false);
       setCarbonQty('');
-      fetchDashboardData();
+      await loadDashboardData();
     } catch (err) {
-      showToast(err.message || "Failed to log carbon data", "error");
+      showToast(err.message || "Failed to log carbon transaction.", "error");
     }
   };
 
@@ -220,20 +287,21 @@ export default function Dashboard() {
     }
 
     try {
+      showToast("Joining challenge...", "info");
       await challengeService.join(ch._id || ch.id);
-      showToast(`Joined challenge: ${ch.title}!`, "success");
+      showToast(`Successfully joined challenge: ${ch.title || ch.name}!`, "success");
       setIsChallengeModalOpen(false);
-      fetchDashboardData();
+      await loadDashboardData();
     } catch (err) {
-      showToast(err.message || "Failed to join challenge", "error");
+      showToast(err.message || "Failed to join challenge.", "error");
     }
   };
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
-        <Loader className="w-8 h-8 text-brand animate-spin" />
-        <span className="text-xs text-text-secondary font-bold font-mono tracking-wider uppercase">Loading dynamic metrics...</span>
+      <div className="flex flex-col items-center justify-center min-h-[70vh] space-y-4">
+        <Loader2 className="w-10 h-10 text-brand animate-spin" />
+        <p className="text-xs text-text-secondary font-medium tracking-wide">Loading real-time ESG metrics...</p>
       </div>
     );
   }
@@ -249,7 +317,7 @@ export default function Dashboard() {
           <p className="text-text-secondary text-xs mt-1 font-medium">Real-time performance metrics, compliance logs, and cross-department ESG indicators.</p>
         </div>
         <div className="flex items-center space-x-2 text-[10px] text-text-secondary bg-bg-card border border-border-sage rounded-lg p-2 font-mono">
-          <span className="w-2 h-2 rounded-full bg-brand"></span>
+          <span className="w-2 h-2 rounded-full bg-brand animate-pulse"></span>
           <span>Updated: Just Now</span>
         </div>
       </div>
@@ -333,46 +401,35 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Card 4: Overall ESG Score */}
+          {/* Card 4: Total Org ESG Score */}
           <div 
-            onClick={() => { if (canAccess('reports')) navigate('/reports'); }}
-            className={`relative bg-bg-card border-2 border-brand/40 rounded-2xl p-6 hover:scale-[1.01] transition-all duration-300 shadow-premium-green hover:border-brand cursor-pointer group ${
-              !canAccess('reports') ? 'opacity-50 grayscale pointer-events-none' : ''
-            }`}
+            className="bg-bg-card bg-gradient-to-br from-bg-card to-brand/5 border-l-4 border-l-brand border border-border-sage rounded-r-2xl rounded-l-md p-6 hover:scale-[1.01] transition-all duration-300 hover:shadow-premium-sage group"
           >
-            <div className="absolute top-0 right-0 -mt-2.5 -mr-1 px-2.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-widest bg-brand text-bg-base shadow-md">
-              Primary
-            </div>
             <div className="flex items-center justify-between">
-              <span className="text-brand text-[10px] font-extrabold uppercase tracking-wider font-display">Overall {TERMS.score}</span>
+              <span className="text-text-secondary text-[10px] font-bold uppercase tracking-wider font-display">Overall Organizational ESG</span>
               <div className="p-1.5 rounded-lg bg-brand/10 text-brand group-hover:bg-brand/20 transition-colors">
-                <Activity className="w-4 h-4" />
+                <Award className="w-4 h-4" />
               </div>
             </div>
             <div className="mt-4 flex items-baseline justify-between">
-              <span className="text-3xl font-black text-text-primary tracking-tight font-display font-mono">{scoresData.overallScore} <span className="text-sm font-normal text-text-secondary">/ 100</span></span>
-              <span className="flex items-center text-[10px] font-bold text-brand bg-brand/10 px-1.5 py-0.5 rounded">
-                <TrendingUp className="w-3 h-3 mr-1" />
-                +3.2%
+              <span className="text-3xl font-extrabold text-text-primary tracking-tight font-display font-mono">{scoresData.overallScore} <span className="text-sm font-normal text-text-secondary">/ 100</span></span>
+              <span className="flex items-center text-[10px] font-bold text-brand bg-brand/10 px-1.5 py-0.5 rounded animate-pulse">
+                <Activity className="w-3 h-3 mr-1" />
+                Live Mapped
               </span>
             </div>
             <div className="mt-3 h-1 bg-bg-base rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-brand to-accent-rep rounded-full" style={{ width: `${scoresData.overallScore}%` }}></div>
+              <div className="h-full bg-gradient-to-r from-brand to-lime-500 rounded-full" style={{ width: `${scoresData.overallScore}%` }}></div>
             </div>
           </div>
 
         </div>
-        
-        {/* KPI Feature Caption */}
-        <p className="text-[10px] text-text-secondary/70 mt-3 pl-1 font-bold tracking-wide uppercase font-display">
-          Features: Live KPI metrics • dynamic tracking • direct module navigation
-        </p>
       </div>
 
-      {/* TWO-COLUMN CHART ROW */}
+      {/* CHARTS CONTAINER GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
-        {/* Left Card: Emissions Trend LineChart */}
+        {/* Left Card: CO2 Emissions Trend LineChart */}
         <div className="bg-bg-card border border-border-sage rounded-2xl p-6 shadow-sm flex flex-col justify-between min-h-[380px]">
           <div className="flex items-center justify-between pb-4 border-b border-border-sage">
             <div className="flex items-center space-x-2">
@@ -386,7 +443,7 @@ export default function Dashboard() {
           
           <div className="flex-1 mt-4">
             <ResponsiveContainer width="100%" height={260}>
-              <LineChart data={chartEmissions} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <LineChart data={emissionsChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <XAxis 
                   dataKey="name" 
                   stroke="var(--color-text-secondary)" 
@@ -498,21 +555,51 @@ export default function Dashboard() {
             </h3>
             
             <div className="mt-4 divide-y divide-border-sage/40">
-              {recentActivities.length === 0 && (
-                <p className="text-xs text-text-secondary py-8 text-center">No recent ESG activities logged.</p>
-              )}
-              {recentActivities.map((act) => (
-                <div key={act.id || act._id} className="py-3.5 flex items-start space-x-3.5 hover:bg-bg-base/30 px-2 rounded-lg transition-colors duration-150">
-                  <div className="mt-0.5 p-1.5 rounded-lg bg-brand/15 text-brand">
-                    <CheckCircle className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold text-text-primary">{act.message}</p>
-                    <p className="text-[10px] text-text-secondary mt-0.5">{act.date}</p>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-text-secondary mt-1" />
+              
+              <div className="py-3.5 flex items-start space-x-3.5 hover:bg-bg-base/30 px-2 rounded-lg transition-colors duration-150">
+                <div className="mt-0.5 p-1.5 rounded-lg bg-accent-env/15 text-accent-env">
+                  <CheckCircle className="w-4 h-4" />
                 </div>
-              ))}
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-text-primary">Priya completed 'Zero Waste Week'</p>
+                  <p className="text-[10px] text-text-secondary mt-0.5">Environmental Gamification • 2 hours ago</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-text-secondary mt-1" />
+              </div>
+
+              <div className="py-3.5 flex items-start space-x-3.5 hover:bg-bg-base/30 px-2 rounded-lg transition-colors duration-150">
+                <div className="mt-0.5 p-1.5 rounded-lg bg-red-500/15 text-red-400">
+                  <AlertTriangle className="w-4 h-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-text-primary">New compliance issue in Logistics</p>
+                  <p className="text-[10px] text-text-secondary mt-0.5">Governance Compliance • 5 hours ago</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-text-secondary mt-1" />
+              </div>
+
+              <div className="py-3.5 flex items-start space-x-3.5 hover:bg-bg-base/30 px-2 rounded-lg transition-colors duration-150">
+                <div className="mt-0.5 p-1.5 rounded-lg bg-brand/15 text-brand">
+                  <FileText className="w-4 h-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-text-primary">42 new Carbon Transactions logged</p>
+                  <p className="text-[10px] text-text-secondary mt-0.5">Environmental Accounting • 1 day ago</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-text-secondary mt-1" />
+              </div>
+
+              <div className="py-3.5 flex items-start space-x-3.5 hover:bg-bg-base/30 px-2 rounded-lg transition-colors duration-150">
+                <div className="mt-0.5 p-1.5 rounded-lg bg-accent-gov/15 text-accent-gov">
+                  <ClipboardCheck className="w-4 h-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-text-primary">R&D acknowledged Anti-Corruption Policy</p>
+                  <p className="text-[10px] text-text-secondary mt-0.5">Governance Policy • 2 days ago</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-text-secondary mt-1" />
+              </div>
+
             </div>
           </div>
         </div>
@@ -606,24 +693,26 @@ export default function Dashboard() {
           <div>
             <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Department</label>
             <select
-              value={carbonDeptId}
-              onChange={(e) => setCarbonDeptId(e.target.value)}
+              value={carbonDept}
+              onChange={(e) => setCarbonDept(e.target.value)}
               className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary focus:outline-none focus:border-brand"
             >
+              <option value="">Select Department</option>
               {departments.map(d => (
-                <option key={d.id} value={d.id}>{d.name}</option>
+                <option key={d._id || d.id} value={d._id || d.id}>{d.name}</option>
               ))}
             </select>
           </div>
           <div>
-            <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Product Profile</label>
+            <label className="block text-xs font-bold text-text-secondary uppercase tracking-wide mb-1.5">Product ESG Profile</label>
             <select
               value={selectedProductId}
               onChange={(e) => setSelectedProductId(e.target.value)}
               className="w-full bg-bg-base border border-border-sage rounded-lg p-2.5 text-xs text-text-primary focus:outline-none focus:border-brand"
             >
+              <option value="">Select Product Profile</option>
               {products.map(p => (
-                <option key={p.id} value={p.id}>{p.name} ({p.emissionFactorValue} {p.unit})</option>
+                <option key={p.id} value={p.id}>{p.label}</option>
               ))}
             </select>
           </div>
@@ -648,11 +737,11 @@ export default function Dashboard() {
           </div>
           
           {/* Live Preview Calculation */}
-          {carbonQty && currentProduct && (
+          {carbonQty && selectedProdObj && linkedFactor && (
             <div className="p-3 bg-brand/5 border border-brand/20 rounded-lg text-[11px] font-semibold text-brand">
               🧮 Live Calculation Preview: <br/>
               <span className="font-bold font-mono">
-                {carbonQty} units × {currentProduct.emissionFactorValue} {currentProduct.unit} = {(calculatedEmissions).toLocaleString()} kg CO₂ ({parseFloat((calculatedEmissions / 1000).toFixed(2))} tCO2e)
+                {carbonQty} units × {linkedFactor.emissionValue || linkedFactor.factorValue} {linkedFactor.unit} = {calculatedEmissions.toLocaleString()} kg CO₂ ({parseFloat((calculatedEmissions / 1000).toFixed(2))} tCO2e)
               </span>
             </div>
           )}
@@ -669,11 +758,11 @@ export default function Dashboard() {
       >
         <div className="space-y-4 divide-y divide-border-sage/40">
           <p className="text-[11px] text-text-secondary">Select an active challenge from the platform to join.</p>
-          {challengesList.filter(ch => !myParticipations.includes(ch._id || ch.id)).map((ch) => (
+          {challengesList.filter(ch => !ch.hasJoined).map((ch) => (
             <div key={ch._id || ch.id} className="pt-4 flex items-center justify-between">
               <div>
                 <h4 className="text-xs font-bold text-text-primary font-display">{ch.title || ch.name}</h4>
-                <p className="text-[10px] text-text-secondary mt-0.5">XP Reward: {ch.xpReward} • Difficulty: {ch.difficulty}</p>
+                <p className="text-[10px] text-text-secondary mt-0.5">XP Reward: {ch.xp || ch.xpReward || 100} • Difficulty: {ch.difficulty || 'Medium'}</p>
               </div>
               <button
                 onClick={() => handleJoinChallenge(ch)}
@@ -683,7 +772,7 @@ export default function Dashboard() {
               </button>
             </div>
           ))}
-          {challengesList.filter(ch => !myParticipations.includes(ch._id || ch.id)).length === 0 && (
+          {challengesList.filter(ch => !ch.hasJoined).length === 0 && (
             <p className="text-xs text-text-secondary pt-4 text-center">No new challenges available to join.</p>
           )}
         </div>

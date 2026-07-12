@@ -149,70 +149,31 @@ export const dropdownService = {
 };
 
 // ─────────────────────────────────────────────────────────────
-// Dashboard Service
+// Dashboard & Department Service
 // ─────────────────────────────────────────────────────────────
 export const dashboardService = {
-  async getSummary() {
-    const res = await apiClient('/dashboard/summary');
+  async getCarbonDashboard() {
+    const res = await apiClient('/carbon-transactions/dashboard');
     return res.data || {};
   },
-  async getCompliance() {
-    const res = await apiClient('/dashboard/compliance');
-    return res.data || {};
-  },
-  async getChallenges() {
-    const res = await apiClient('/dashboard/challenges');
-    return res.data || {};
-  },
-  async getBadges() {
-    const res = await apiClient('/dashboard/badges');
-    return res.data || {};
-  },
-  async getRewards() {
-    const res = await apiClient('/dashboard/rewards');
-    return res.data || {};
-  },
-  async getPolicies() {
-    const res = await apiClient('/dashboard/policies');
-    return res.data || {};
-  },
-  async getAudits() {
-    const res = await apiClient('/dashboard/audits');
-    return res.data || {};
-  },
-  async getEmployees() {
-    const res = await apiClient('/dashboard/employees');
-    return res.data || {};
-  },
-  async getCharts() {
-    const res = await apiClient('/dashboard/charts');
+
+  async getGoalStatistics() {
+    const res = await apiClient('/sustainability-goals/statistics');
     return res.data || {};
   },
 };
 
-// ─────────────────────────────────────────────────────────────
-// Reports Service
-// ─────────────────────────────────────────────────────────────
-export const reportService = {
-  async getEsgSummary(params = {}) {
-    const query = new URLSearchParams(params).toString();
-    const res = await apiClient(`/reports/esg-summary?${query}`);
-    return res.data || {};
-  },
-  async getEnvironmental(params = {}) {
-    const query = new URLSearchParams(params).toString();
-    const res = await apiClient(`/reports/environment?${query}`);
-    return res.data || {};
+export const departmentService = {
+  async getAll() {
+    const res = await apiClient('/departments?limit=100');
+    return res.data || [];
   },
 };
 
-// ─────────────────────────────────────────────────────────────
-// Challenge Service
-// ─────────────────────────────────────────────────────────────
 export const challengeService = {
   async getAll() {
     const res = await apiClient('/challenges?limit=100');
-    return res.data?.results || res.data || [];
+    return res.data || [];
   },
   async join(challengeId) {
     const res = await apiClient('/challenges/join', {
@@ -221,18 +182,63 @@ export const challengeService = {
     });
     return res.data;
   },
-  async getParticipants() {
-    const res = await apiClient('/challenges/participants');
+};
+
+export const complianceService = {
+  async getAll() {
+    const res = await apiClient('/compliances?limit=100');
     return res.data || [];
   },
 };
 
-// ─────────────────────────────────────────────────────────────
-// Department Service
-// ─────────────────────────────────────────────────────────────
-export const departmentService = {
+export const auditService = {
   async getAll() {
-    const res = await apiClient('/departments');
+    const res = await apiClient('/audits?limit=100');
     return res.data || [];
   },
+};
+
+export const policyService = {
+  async getAll() {
+    const res = await apiClient('/policies?limit=100');
+    return res.data || [];
+  },
+};
+
+export const reportService = {
+  async getEnvironmental(params) {
+    const res = await apiClient(`/reports/environment?${new URLSearchParams(params).toString()}`);
+    return res.data;
+  },
+  async getSocial(params) {
+    const res = await apiClient(`/reports/social?${new URLSearchParams(params).toString()}`);
+    return res.data;
+  },
+  async getGovernance(params) {
+    const res = await apiClient(`/reports/governance?${new URLSearchParams(params).toString()}`);
+    return res.data;
+  },
+  async getEsgSummary(params) {
+    const res = await apiClient(`/reports/esg-summary?${new URLSearchParams(params).toString()}`);
+    return res.data;
+  },
+  async getCustomReport(payload) {
+    const res = await apiClient('/reports/custom', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return res.data;
+  },
+  async exportReport(format, reportType, filters) {
+    const response = await fetch(`http://localhost:5000/api/v1/reports/export/${format.toLowerCase()}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      },
+      body: JSON.stringify({ reportType, filters }),
+    });
+    if (!response.ok) throw new Error('Export failed');
+    return await response.blob();
+  }
 };
