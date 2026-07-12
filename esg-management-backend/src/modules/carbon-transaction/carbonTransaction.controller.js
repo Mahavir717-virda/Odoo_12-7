@@ -14,8 +14,11 @@ const carbonTransactionService = new CarbonTransactionService();
 const validateRequest = (req) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    const errorMsg = errors.array().map((err) => err.msg).join(', ');
-    throw new ApiError(HTTP_STATUS.BAD_REQUEST, errorMsg);
+    const formattedErrors = errors.array().map((err) => ({
+      field: err.path,
+      message: err.msg,
+    }));
+    throw new ApiError(HTTP_STATUS.BAD_REQUEST, 'Validation failed', true, '', formattedErrors);
   }
 };
 

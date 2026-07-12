@@ -8,10 +8,11 @@ export class ApiError extends Error {
    * @param {boolean} isOperational - Signifies if error is operational or programming/system error
    * @param {string} stack - Optional stack trace override
    */
-  constructor(statusCode, message, isOperational = true, stack = '') {
+  constructor(statusCode, message, isOperational = true, stack = '', errors = []) {
     super(message);
     this.statusCode = statusCode;
     this.isOperational = isOperational;
+    this.errors = errors;
     if (stack) {
       this.stack = stack;
     } else {
