@@ -14,6 +14,8 @@ import goalRouter from '../modules/sustainability-goal/goal.route.js';
 import challengeRouter from '../modules/challenge/challenge.route.js';
 import badgeRouter from '../modules/badge/badge.route.js';
 import rewardRouter from '../modules/reward/reward.route.js';
+import policyRouter from '../modules/policy/policy.route.js';
+import auditRouter from '../modules/audit/audit.route.js';
 
 const router = Router();
 
@@ -30,6 +32,8 @@ router.use('/challenges', challengeRouter);
 router.use('/sustainability-goals', goalRouter);
 router.use('/badges', badgeRouter);
 router.use('/rewards', rewardRouter);
+router.use('/policies', policyRouter);
+router.use('/audits', auditRouter);
 
 /**
  * GET /api/v1
