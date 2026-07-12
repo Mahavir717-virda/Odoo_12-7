@@ -247,6 +247,25 @@ export function AuthProvider({ children }) {
     });
   };
 
+  const refreshUser = async () => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      try {
+        const response = await fetch('http://localhost:5000/api/v1/auth/me', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const result = await response.json();
+        if (response.ok) {
+          setUser(result.data);
+          localStorage.setItem('mock_user', JSON.stringify(result.data));
+          return result.data;
+        }
+      } catch (err) {
+        console.error('Failed to refresh user profile:', err);
+      }
+    }
+  };
+
   return (
     <AuthContext.Provider value={{ 
       user, 
@@ -259,6 +278,7 @@ export function AuthProvider({ children }) {
       canEdit,
       canApprove,
       updateUserXPAndPoints,
+      refreshUser,
       notifications,
       createNotification
     }}>

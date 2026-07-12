@@ -16,6 +16,7 @@ import {
   RefreshCw,
   Loader,
   CheckCircle,
+  Lock,
 } from 'lucide-react';
 
 const API_BASE = 'http://localhost:5000/api/v1';
@@ -39,7 +40,7 @@ const apiCall = async (path, method = 'GET', body = null) => {
 export default function Gamification() {
   const location = useLocation();
   const { showToast } = useToast();
-  const { user, canEdit, canApprove } = useAuth();
+  const { user, canEdit, canApprove, refreshUser } = useAuth();
 
   const [activeSubTab, setActiveSubTab] = useState('Challenges');
   const [filterType, setFilterType] = useState('all');
@@ -49,6 +50,7 @@ export default function Gamification() {
   const [challenges, setChallenges] = useState([]);
   const [participationList, setParticipationList] = useState([]);
   const [badges, setBadges] = useState([]);
+  const [myBadges, setMyBadges] = useState([]);
   const [rewards, setRewards] = useState([]);
   const [leaderboard, setLeaderboard] = useState([]);
   const [challengeCategories, setChallengeCategories] = useState([]);
@@ -79,13 +81,14 @@ export default function Gamification() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [chRes, partRes, badgeRes, rewardRes, lbRes, catRes] = await Promise.allSettled([
+      const [chRes, partRes, badgeRes, myBadgeRes, rewardRes, lbRes, catRes] = await Promise.allSettled([
         apiCall('/challenges?limit=100'),
         apiCall('/challenges/participants'),
+        apiCall('/challenges/badges'),
         apiCall('/challenges/my-badges'),
         apiCall('/challenges/rewards'),
         apiCall('/challenges/leaderboard?limit=20'),
-        apiCall('/challenges/categories'),
+        apiCall('/categories?limit=100'),
       ]);
 
       if (chRes.status === 'fulfilled') {
@@ -107,6 +110,10 @@ export default function Gamification() {
         const d = badgeRes.value?.data;
         setBadges(Array.isArray(d) ? d : []);
       }
+      if (myBadgeRes.status === 'fulfilled') {
+        const d = myBadgeRes.value?.data;
+        setMyBadges(Array.isArray(d) ? d : []);
+      }
       if (rewardRes.status === 'fulfilled') {
         const d = rewardRes.value?.data;
         setRewards(Array.isArray(d) ? d : []);
@@ -117,7 +124,12 @@ export default function Gamification() {
       }
       if (catRes.status === 'fulfilled') {
         const d = catRes.value?.data;
-        setChallengeCategories(Array.isArray(d) ? d : []);
+        // /categories returns paginated { results: [...], totalRecords, ... }
+        setChallengeCategories(Array.isArray(d?.results) ? d.results : Array.isArray(d) ? d : []);
+      }
+      // Also refresh logged-in user points/xp info
+      if (refreshUser) {
+        refreshUser();
       }
     } catch (err) {
       showToast('Failed to load gamification data.', 'error');
@@ -493,11 +505,25 @@ export default function Gamification() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 {badges.map((b) => {
                   const badge = b.badgeId || b;
+                  const isEarned = myBadges.some(mb => (mb.badgeId?._id || mb.badgeId) === badge._id);
+                  const showAsLocked = !canEdit('gamification') && !isEarned;
                   return (
-                    <div key={b._id} className="bg-bg-card border border-border-sage rounded-2xl p-5 hover:scale-[1.01] transition-all flex items-center space-x-4">
-                      <div className="p-3 rounded-xl bg-bg-base border border-border-sage flex-shrink-0">{renderBadgeIcon(badge.icon)}</div>
-                      <div className="min-w-0">
-                        <h4 className="font-bold text-text-primary text-xs font-display truncate">{badge.title}</h4>
+                    <div key={badge._id} className={`bg-bg-card border border-border-sage rounded-2xl p-5 hover:scale-[1.01] transition-all flex items-center space-x-4 ${showAsLocked ? 'opacity-60 grayscale' : ''}`}>
+                      <div className="p-3 rounded-xl bg-bg-base border border-border-sage flex-shrink-0 relative">
+                        {renderBadgeIcon(badge.icon)}
+                        {showAsLocked && (
+                          <div className="absolute -top-1 -right-1 bg-bg-card border border-border-sage p-0.5 rounded-full shadow-sm">
+                            <Lock className="w-2.5 h-2.5 text-text-secondary" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-1">
+                          <h4 className="font-bold text-text-primary text-xs font-display truncate">{badge.title}</h4>
+                          {isEarned && !canEdit('gamification') && (
+                            <span className="text-[9px] font-extrabold text-accent-env bg-accent-env/10 px-1.5 py-0.5 rounded uppercase tracking-wider">Earned</span>
+                          )}
+                        </div>
                         <p className="text-[10px] text-text-secondary mt-0.5 font-medium">
                           {badge.xpRequired > 0 ? `${badge.xpRequired} XP` : ''}
                           {badge.xpRequired > 0 && badge.challengeCount > 0 ? ' · ' : ''}

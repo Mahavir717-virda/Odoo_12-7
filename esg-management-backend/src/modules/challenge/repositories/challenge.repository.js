@@ -225,6 +225,10 @@ export class ChallengeRepository {
     return await EmployeeBadge.find({ employeeId, isDeleted: false }).populate('badgeId', 'title icon');
   }
 
+  async findAllBadges() {
+    return await Badge.find({ isDeleted: false });
+  }
+
   // ==========================================
   // REWARD & REDEMPTION METHODS
   // ==========================================
