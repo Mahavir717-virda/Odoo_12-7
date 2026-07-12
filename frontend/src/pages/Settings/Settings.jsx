@@ -33,6 +33,65 @@ export default function Settings() {
   const [departments, setDepartments] = useState([]);
   const [categories, setCategories] = useState([]);
 
+  const [notifPreferences, setNotifPreferences] = useState({
+    challenge_notifications: true,
+    policy_notifications: true,
+    badge_notifications: true,
+    compliance_notifications: true,
+    csr_notifications: true,
+    audit_notifications: true,
+    email_notifications: true,
+    in_app_notifications: true,
+    push_notifications: false
+  });
+
+  useEffect(() => {
+    if (activeSubTab === 'Notification Settings') {
+      const fetchNotifPreferences = async () => {
+        try {
+          const token = localStorage.getItem('token');
+          const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+          const res = await fetch('http://localhost:5000/api/v1/notification-settings', { headers });
+          if (res.ok) {
+            const resJson = await res.json();
+            if (resJson.success && resJson.data) {
+              setNotifPreferences(resJson.data);
+            }
+          }
+        } catch (err) {
+          console.error('Error fetching notification settings:', err);
+        }
+      };
+      fetchNotifPreferences();
+    }
+  }, [activeSubTab]);
+
+  const handleNotifToggle = async (key) => {
+    try {
+      const token = localStorage.getItem('token');
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      };
+      const updated = { ...notifPreferences, [key]: !notifPreferences[key] };
+      setNotifPreferences(updated);
+
+      const res = await fetch('http://localhost:5000/api/v1/notification-settings', {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(updated)
+      });
+      if (res.ok) {
+        showToast("Notification preferences updated successfully.", "success");
+      } else {
+        showToast("Failed to update notification preferences.", "error");
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Error updating preferences.", "error");
+    }
+  };
+
   const fetchSettingsData = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -470,7 +529,7 @@ export default function Settings() {
                   {activeSubTab === 'ESG Configuration' ? 'ESG Configuration' : 'Notification Settings'}
                 </h3>
               </div>
-              {!isAdmin && (
+              {!isAdmin && activeSubTab === 'ESG Configuration' && (
                 <span className="text-[9px] text-text-secondary font-bold bg-bg-base border border-border-sage px-2 py-1 rounded-full uppercase tracking-wider">
                   Admin Access Required to Modify Settings
                 </span>
@@ -528,19 +587,150 @@ export default function Settings() {
               )}
 
               {activeSubTab === 'Notification Settings' && (
-                <div className="flex items-center justify-between py-4">
-                  <span className="text-xs font-semibold text-text-primary">Email alerts for new compliance issues</span>
-                  <button 
-                    disabled={!isAdmin}
-                    onClick={() => toggleHandler('emailAlerts')}
-                    className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors duration-300 focus:outline-none ${
-                      toggles.emailAlerts ? 'bg-accent-env' : 'bg-bg-base border border-border-sage'
-                    } ${!isAdmin ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
-                  >
-                    <div className={`w-4 h-4 rounded-full shadow-md transform transition-transform duration-300 ${
-                      toggles.emailAlerts ? 'translate-x-5 bg-bg-base' : 'translate-x-0 bg-text-secondary'
-                    }`} />
-                  </button>
+                <div className="space-y-6">
+                  {/* Delivery Channels */}
+                  <div>
+                    <h4 className="text-xs font-bold text-text-secondary uppercase tracking-wider mb-3">Delivery Channels</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="flex items-center justify-between bg-bg-base/40 border border-border-sage/40 rounded-xl p-4">
+                        <span className="text-xs font-semibold text-text-primary">In-App Notifications</span>
+                        <button 
+                          onClick={() => handleNotifToggle('in_app_notifications')}
+                          className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors duration-300 focus:outline-none ${
+                            notifPreferences.in_app_notifications ? 'bg-accent-env' : 'bg-bg-base border border-border-sage'
+                          }`}
+                        >
+                          <div className={`w-4 h-4 rounded-full shadow-md transform transition-transform duration-300 bg-white ${
+                            notifPreferences.in_app_notifications ? 'translate-x-5' : 'translate-x-0'
+                          }`} />
+                        </button>
+                      </div>
+
+                      <div className="flex items-center justify-between bg-bg-base/40 border border-border-sage/40 rounded-xl p-4">
+                        <span className="text-xs font-semibold text-text-primary">Email Notifications</span>
+                        <button 
+                          onClick={() => handleNotifToggle('email_notifications')}
+                          className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors duration-300 focus:outline-none ${
+                            notifPreferences.email_notifications ? 'bg-accent-env' : 'bg-bg-base border border-border-sage'
+                          }`}
+                        >
+                          <div className={`w-4 h-4 rounded-full shadow-md transform transition-transform duration-300 bg-white ${
+                            notifPreferences.email_notifications ? 'translate-x-5' : 'translate-x-0'
+                          }`} />
+                        </button>
+                      </div>
+
+                      <div className="flex items-center justify-between bg-bg-base/40 border border-border-sage/40 rounded-xl p-4">
+                        <span className="text-xs font-semibold text-text-primary">Push Notifications</span>
+                        <button 
+                          onClick={() => handleNotifToggle('push_notifications')}
+                          className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors duration-300 focus:outline-none ${
+                            notifPreferences.push_notifications ? 'bg-accent-env' : 'bg-bg-base border border-border-sage'
+                          }`}
+                        >
+                          <div className={`w-4 h-4 rounded-full shadow-md transform transition-transform duration-300 bg-white ${
+                            notifPreferences.push_notifications ? 'translate-x-5' : 'translate-x-0'
+                          }`} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Governance Events */}
+                  <div>
+                    <h4 className="text-xs font-bold text-text-secondary uppercase tracking-wider mb-3">Governance Events</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="flex items-center justify-between bg-bg-base/40 border border-border-sage/40 rounded-xl p-4">
+                        <span className="text-xs font-semibold text-text-primary">Policy Updates</span>
+                        <button 
+                          onClick={() => handleNotifToggle('policy_notifications')}
+                          className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors duration-300 focus:outline-none ${
+                            notifPreferences.policy_notifications ? 'bg-accent-env' : 'bg-bg-base border border-border-sage'
+                          }`}
+                        >
+                          <div className={`w-4 h-4 rounded-full shadow-md transform transition-transform duration-300 bg-white ${
+                            notifPreferences.policy_notifications ? 'translate-x-5' : 'translate-x-0'
+                          }`} />
+                        </button>
+                      </div>
+
+                      <div className="flex items-center justify-between bg-bg-base/40 border border-border-sage/40 rounded-xl p-4">
+                        <span className="text-xs font-semibold text-text-primary">Compliance Issues</span>
+                        <button 
+                          onClick={() => handleNotifToggle('compliance_notifications')}
+                          className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors duration-300 focus:outline-none ${
+                            notifPreferences.compliance_notifications ? 'bg-accent-env' : 'bg-bg-base border border-border-sage'
+                          }`}
+                        >
+                          <div className={`w-4 h-4 rounded-full shadow-md transform transition-transform duration-300 bg-white ${
+                            notifPreferences.compliance_notifications ? 'translate-x-5' : 'translate-x-0'
+                          }`} />
+                        </button>
+                      </div>
+
+                      <div className="flex items-center justify-between bg-bg-base/40 border border-border-sage/40 rounded-xl p-4">
+                        <span className="text-xs font-semibold text-text-primary">Audit Status Updates</span>
+                        <button 
+                          onClick={() => handleNotifToggle('audit_notifications')}
+                          className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors duration-300 focus:outline-none ${
+                            notifPreferences.audit_notifications ? 'bg-accent-env' : 'bg-bg-base border border-border-sage'
+                          }`}
+                        >
+                          <div className={`w-4 h-4 rounded-full shadow-md transform transition-transform duration-300 bg-white ${
+                            notifPreferences.audit_notifications ? 'translate-x-5' : 'translate-x-0'
+                          }`} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Social & Gamification Events */}
+                  <div>
+                    <h4 className="text-xs font-bold text-text-secondary uppercase tracking-wider mb-3">Social & Gamification Events</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="flex items-center justify-between bg-bg-base/40 border border-border-sage/40 rounded-xl p-4">
+                        <span className="text-xs font-semibold text-text-primary">CSR Activities</span>
+                        <button 
+                          onClick={() => handleNotifToggle('csr_notifications')}
+                          className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors duration-300 focus:outline-none ${
+                            notifPreferences.csr_notifications ? 'bg-accent-env' : 'bg-bg-base border border-border-sage'
+                          }`}
+                        >
+                          <div className={`w-4 h-4 rounded-full shadow-md transform transition-transform duration-300 bg-white ${
+                            notifPreferences.csr_notifications ? 'translate-x-5' : 'translate-x-0'
+                          }`} />
+                        </button>
+                      </div>
+
+                      <div className="flex items-center justify-between bg-bg-base/40 border border-border-sage/40 rounded-xl p-4">
+                        <span className="text-xs font-semibold text-text-primary">Challenges</span>
+                        <button 
+                          onClick={() => handleNotifToggle('challenge_notifications')}
+                          className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors duration-300 focus:outline-none ${
+                            notifPreferences.challenge_notifications ? 'bg-accent-env' : 'bg-bg-base border border-border-sage'
+                          }`}
+                        >
+                          <div className={`w-4 h-4 rounded-full shadow-md transform transition-transform duration-300 bg-white ${
+                            notifPreferences.challenge_notifications ? 'translate-x-5' : 'translate-x-0'
+                          }`} />
+                        </button>
+                      </div>
+
+                      <div className="flex items-center justify-between bg-bg-base/40 border border-border-sage/40 rounded-xl p-4">
+                        <span className="text-xs font-semibold text-text-primary">Badge Achievements</span>
+                        <button 
+                          onClick={() => handleNotifToggle('badge_notifications')}
+                          className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors duration-300 focus:outline-none ${
+                            notifPreferences.badge_notifications ? 'bg-accent-env' : 'bg-bg-base border border-border-sage'
+                          }`}
+                        >
+                          <div className={`w-4 h-4 rounded-full shadow-md transform transition-transform duration-300 bg-white ${
+                            notifPreferences.badge_notifications ? 'translate-x-5' : 'translate-x-0'
+                          }`} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

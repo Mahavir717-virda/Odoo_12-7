@@ -2,11 +2,15 @@ import app from './app.js';
 import { config } from './config/env.js';
 import { connectDB } from './config/database.js';
 import { logger } from './config/logger.js';
+import { startPolicyReminderScheduler } from './modules/policy/policyReminder.job.js';
 
 let server;
 
 // Start database connection
 connectDB();
+
+// Start background schedulers
+startPolicyReminderScheduler();
 
 // Listen to port
 server = app.listen(config.port, () => {

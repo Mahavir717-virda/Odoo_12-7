@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink, Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { TERMS } from '../../constants/terminology';
@@ -14,7 +14,10 @@ import {
   Activity, 
   LogOut,
   Leaf,
-  Lock
+  Lock,
+  Bell,
+  Trash2,
+  Check
 } from 'lucide-react';
 
 export default function Layout() {
@@ -22,6 +25,111 @@ export default function Layout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+
+  const [notifications, setNotifications] = useState([]);
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchNotifications = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+        const response = await fetch('http://localhost:5000/api/v1/notifications', { headers });
+        const resJson = await response.json();
+        if (resJson.success) {
+          setNotifications(resJson.data || []);
+        }
+      } catch (err) {
+        console.error('Error fetching notifications:', err);
+      }
+    };
+
+    fetchNotifications();
+
+    const token = localStorage.getItem('token') || '';
+    const sseUrl = `http://localhost:5000/api/v1/notifications/stream?userId=${user._id}&token=${token}`;
+    const eventSource = new EventSource(sseUrl);
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data && data._id) {
+          setNotifications(prev => {
+            if (prev.some(n => n._id === data._id)) return prev;
+            return [data, ...prev];
+          });
+        }
+      } catch (err) {
+        // Handle heartbeat/pulse
+      }
+    };
+
+    eventSource.onerror = () => {
+      // Reconnects automatically
+    };
+
+    return () => {
+      eventSource.close();
+    };
+  }, [user]);
+
+  const unreadCount = notifications.filter(n => !n.isRead).length;
+
+  const markAllRead = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const headers = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      await fetch('http://localhost:5000/api/v1/notifications/read-all', {
+        method: 'PATCH',
+        headers
+      });
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+    } catch (err) {
+      console.error('Error marking all as read:', err);
+    }
+  };
+
+  const markAsRead = async (id) => {
+    try {
+      const token = localStorage.getItem('token');
+      const headers = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      await fetch(`http://localhost:5000/api/v1/notifications/${id}/read`, {
+        method: 'PATCH',
+        headers
+      });
+      setNotifications(prev => prev.map(n => n._id === id ? { ...n, isRead: true } : n));
+    } catch (err) {
+      console.error('Error marking as read:', err);
+    }
+  };
+
+  const deleteNotif = async (id) => {
+    try {
+      const token = localStorage.getItem('token');
+      const headers = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      await fetch(`http://localhost:5000/api/v1/notifications/${id}`, {
+        method: 'DELETE',
+        headers
+      });
+      setNotifications(prev => prev.filter(n => n._id !== id));
+    } catch (err) {
+      console.error('Error deleting notification:', err);
+    }
+  };
 
   const handleLogout = async () => {
     await logout();
@@ -284,6 +392,109 @@ export default function Layout() {
               <span className={`w-1.5 h-1.5 rounded-full ${liveFeedDot} animate-pulse mr-1.5`}></span>
               Live Feed
             </span>
+
+            {/* Notification Bell */}
+            <div className="relative">
+              <button 
+                onClick={() => setIsNotifOpen(!isNotifOpen)}
+                className="p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-bg-base/60 transition-all relative focus:outline-none animate-in fade-in"
+                title="Notifications"
+                id="notification-bell-btn"
+              >
+                <Bell className="w-5 h-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute top-1 right-1 bg-red-500 text-white text-[9px] font-extrabold rounded-full min-w-4 h-4 px-1 flex items-center justify-center animate-pulse">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+              
+              {isNotifOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setIsNotifOpen(false)}></div>
+                  
+                  <div className="absolute right-0 mt-3 w-80 sm:w-96 bg-bg-card border border-border-sage rounded-xl shadow-2xl z-50 overflow-hidden flex flex-col max-h-[480px] animate-in fade-in slide-in-from-top-2 duration-150">
+                    {/* Dropdown Header */}
+                    <div className="p-4 border-b border-border-sage flex items-center justify-between bg-bg-base/30">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm font-bold text-text-primary font-display">Notifications</span>
+                        {unreadCount > 0 && (
+                          <span className="bg-brand/10 text-brand text-[10px] font-extrabold px-1.5 py-0.5 rounded-full">
+                            {unreadCount} new
+                          </span>
+                        )}
+                      </div>
+                      {unreadCount > 0 && (
+                        <button 
+                          onClick={markAllRead}
+                          className="text-xs font-semibold text-brand hover:text-brand-light transition-colors flex items-center space-x-1"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Mark all read</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Notifications List */}
+                    <div className="flex-1 overflow-y-auto divide-y divide-border-sage/40 max-h-[350px] scrollbar-thin">
+                      {notifications.length === 0 ? (
+                        <div className="p-8 text-center text-text-secondary">
+                          <p className="text-sm font-medium">No notifications yet</p>
+                          <p className="text-xs text-text-secondary/70 mt-1">We'll alert you here when something requires attention.</p>
+                        </div>
+                      ) : (
+                        notifications.map((notif) => (
+                          <div 
+                            key={notif._id} 
+                            className={`p-4 flex items-start space-x-3 transition-colors ${
+                              notif.isRead ? 'opacity-70 hover:opacity-100' : 'bg-brand/5 border-l-2 border-brand'
+                            }`}
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between">
+                                <p className="text-xs font-bold text-text-primary truncate">{notif.title}</p>
+                                <span className="text-[10px] text-text-secondary font-medium">
+                                  {notif.createdAt ? new Date(notif.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now'}
+                                </span>
+                              </div>
+                              <p className="text-xs text-text-secondary mt-1 whitespace-pre-wrap leading-relaxed">{notif.message}</p>
+                              <div className="flex items-center space-x-2 mt-2">
+                                <span className="text-[9px] font-bold uppercase tracking-wider bg-bg-base px-1.5 py-0.5 rounded border border-border-sage/40 text-text-secondary">
+                                  {notif.module}
+                                </span>
+                                {notif.priority === 'High' && (
+                                  <span className="text-[9px] font-bold uppercase tracking-wider bg-red-500/10 border border-red-500/20 text-red-400 px-1.5 py-0.5 rounded">
+                                    High
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex flex-col space-y-2 items-center justify-center">
+                              {!notif.isRead && (
+                                <button 
+                                  onClick={() => markAsRead(notif._id)}
+                                  className="p-1 rounded hover:bg-bg-base text-text-secondary hover:text-brand transition-colors"
+                                  title="Mark as read"
+                                >
+                                  <Check className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                              <button 
+                                onClick={() => deleteNotif(notif._id)}
+                                className="p-1 rounded hover:bg-bg-base text-text-secondary hover:text-red-400 transition-colors"
+                                title="Delete"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
 
             {/* Profile Chip */}
             <div className="flex items-center space-x-3 border-l border-border-sage pl-4">

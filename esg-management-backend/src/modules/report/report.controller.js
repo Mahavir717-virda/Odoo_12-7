@@ -2,16 +2,20 @@ import { ReportService } from './report.service.js';
 import { ApiResponse } from '../../utils/ApiResponse.js';
 import { asyncHandler } from '../../utils/asyncHandler.js';
 import { HTTP_STATUS } from '../../utils/constants.js';
+import { ReportType, ReportTemplate, ReportSchedule, ReportHistory } from './report.model.js';
 
 const reportService = new ReportService();
 
 const getReportDataByType = async (reportType, filters) => {
   switch (reportType) {
     case 'Environmental':
+    case 'Environmental Report':
       return await reportService.getEnvironmentalReport(filters);
     case 'Social':
+    case 'Social Report':
       return await reportService.getSocialReport(filters);
     case 'Governance':
+    case 'Governance Report':
       return await reportService.getGovernanceReport(filters);
     case 'ESG Summary':
       return await reportService.getEsgSummaryReport(filters);
@@ -76,6 +80,105 @@ export class ReportController {
     res.status(HTTP_STATUS.OK).json(new ApiResponse(HTTP_STATUS.OK, report, 'Employee report generated'));
   });
 
+  // Modules metadata
+  getModules = asyncHandler(async (req, res) => {
+    const modules = [
+      { id: 'environmental', name: 'Environmental', label: 'Environmental' },
+      { id: 'social', name: 'Social', label: 'Social' },
+      { id: 'governance', name: 'Governance', label: 'Governance' },
+      { id: 'gamification', name: 'Gamification', label: 'Gamification' },
+      { id: 'settings', name: 'Settings', label: 'Settings' },
+      { id: 'audit', name: 'Audit', label: 'Audit' },
+      { id: 'challenges', name: 'Challenges', label: 'Challenges' },
+      { id: 'csr', name: 'CSR', label: 'CSR' },
+      { id: 'rewards', name: 'Rewards', label: 'Rewards' }
+    ];
+    res.status(HTTP_STATUS.OK).json(new ApiResponse(HTTP_STATUS.OK, modules, 'Report modules retrieved'));
+  });
+
+  // Custom Report Builder
+  getCustomReport = asyncHandler(async (req, res) => {
+    const report = await reportService.getCustomReport(req.body);
+    res.status(HTTP_STATUS.OK).json(new ApiResponse(HTTP_STATUS.OK, report, 'Custom report generated'));
+  });
+
+  // Employee-specific Personal Summary
+  getMySummary = asyncHandler(async (req, res) => {
+    const email = req.query.email || (req.user && req.user.email) || 'employee@ecosphere.com';
+    const summary = await reportService.getMySummary(email);
+    res.status(HTTP_STATUS.OK).json(new ApiResponse(HTTP_STATUS.OK, summary, 'Personal summary retrieved'));
+  });
+
+  // Report Types CRUD
+  getReportTypes = asyncHandler(async (req, res) => {
+    const types = await ReportType.find().sort({ sortOrder: 1 });
+    res.status(HTTP_STATUS.OK).json(new ApiResponse(HTTP_STATUS.OK, types, 'Report types retrieved'));
+  });
+
+  createReportType = asyncHandler(async (req, res) => {
+    const type = await ReportType.create(req.body);
+    res.status(HTTP_STATUS.CREATED).json(new ApiResponse(HTTP_STATUS.CREATED, type, 'Report type created'));
+  });
+
+  updateReportType = asyncHandler(async (req, res) => {
+    const type = await ReportType.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    res.status(HTTP_STATUS.OK).json(new ApiResponse(HTTP_STATUS.OK, type, 'Report type updated'));
+  });
+
+  deleteReportType = asyncHandler(async (req, res) => {
+    await ReportType.findByIdAndDelete(req.params.id);
+    res.status(HTTP_STATUS.OK).json(new ApiResponse(HTTP_STATUS.OK, null, 'Report type deleted'));
+  });
+
+  // Templates CRUD
+  getTemplates = asyncHandler(async (req, res) => {
+    const templates = await ReportTemplate.find().sort({ createdAt: -1 });
+    res.status(HTTP_STATUS.OK).json(new ApiResponse(HTTP_STATUS.OK, templates, 'Templates retrieved'));
+  });
+
+  createTemplate = asyncHandler(async (req, res) => {
+    const template = await ReportTemplate.create(req.body);
+    res.status(HTTP_STATUS.CREATED).json(new ApiResponse(HTTP_STATUS.CREATED, template, 'Template saved'));
+  });
+
+  updateTemplate = asyncHandler(async (req, res) => {
+    const template = await ReportTemplate.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    res.status(HTTP_STATUS.OK).json(new ApiResponse(HTTP_STATUS.OK, template, 'Template updated'));
+  });
+
+  deleteTemplate = asyncHandler(async (req, res) => {
+    await ReportTemplate.findByIdAndDelete(req.params.id);
+    res.status(HTTP_STATUS.OK).json(new ApiResponse(HTTP_STATUS.OK, null, 'Template deleted'));
+  });
+
+  // Schedules CRUD
+  getSchedules = asyncHandler(async (req, res) => {
+    const schedules = await ReportSchedule.find().populate('templateId').sort({ createdAt: -1 });
+    res.status(HTTP_STATUS.OK).json(new ApiResponse(HTTP_STATUS.OK, schedules, 'Schedules retrieved'));
+  });
+
+  createSchedule = asyncHandler(async (req, res) => {
+    const schedule = await ReportSchedule.create(req.body);
+    res.status(HTTP_STATUS.CREATED).json(new ApiResponse(HTTP_STATUS.CREATED, schedule, 'Schedule created'));
+  });
+
+  deleteSchedule = asyncHandler(async (req, res) => {
+    await ReportSchedule.findByIdAndDelete(req.params.id);
+    res.status(HTTP_STATUS.OK).json(new ApiResponse(HTTP_STATUS.OK, null, 'Schedule deleted'));
+  });
+
+  // History CRUD
+  getHistory = asyncHandler(async (req, res) => {
+    const history = await ReportHistory.find().sort({ createdAt: -1 });
+    res.status(HTTP_STATUS.OK).json(new ApiResponse(HTTP_STATUS.OK, history, 'Report generation history retrieved'));
+  });
+
+  createHistory = asyncHandler(async (req, res) => {
+    const item = await ReportHistory.create(req.body);
+    res.status(HTTP_STATUS.CREATED).json(new ApiResponse(HTTP_STATUS.CREATED, item, 'History logged'));
+  });
+
+  // Export handlers
   exportPDF = asyncHandler(async (req, res) => {
     const { reportType, filters = {} } = req.body;
     const report = await getReportDataByType(reportType, filters);

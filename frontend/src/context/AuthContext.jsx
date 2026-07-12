@@ -178,7 +178,7 @@ export function AuthProvider({ children }) {
       case 'gamification':
         return true; // Everyone can view / join
       case 'reports':
-        return ['Sustainability Team', 'Compliance Team', 'HR', 'Manager'].includes(r);
+        return ['Sustainability Team', 'Compliance Team', 'HR', 'Manager', 'Employee'].includes(r);
       case 'settings':
         return r === 'HR'; // HR can view employee lists
       default:

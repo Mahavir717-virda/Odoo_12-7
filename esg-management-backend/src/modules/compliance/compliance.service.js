@@ -17,6 +17,45 @@ export class ComplianceService {
       remarks: 'Compliance issue opened',
     });
 
+    // Dispatch notifications
+    try {
+      const { NotificationService } = await import('../notification/notification.service.js');
+      const notificationService = new NotificationService();
+      
+      if (issue.assignedTo) {
+        // Notify assigned employee
+        await notificationService.createNotification({
+          userId: issue.assignedTo,
+          title: 'New Compliance Issue',
+          message: `Fuel Reporting Gap has been assigned to you.`,
+          module: 'Governance',
+          referenceId: issue._id,
+          priority: issue.severity === 'CRITICAL' || issue.severity === 'HIGH' ? 'High' : 'Normal',
+          type: 'INFO'
+        });
+
+        // Notify Managers and Compliance Teams
+        const User = mongoose.model('User');
+        const teamMembers = await User.find({ role: { $in: ['Manager', 'Sustainability Team', 'Compliance Team'] } });
+        for (const member of teamMembers) {
+          // Avoid duplicate notification to the assignee if they happen to be in those roles
+          if (member._id.toString() !== issue.assignedTo.toString()) {
+            await notificationService.createNotification({
+              userId: member._id,
+              title: 'New Compliance Issue Assigned',
+              message: `Compliance issue "${issue.title || 'Fuel Reporting Gap'}" has been assigned.`,
+              module: 'Governance',
+              referenceId: issue._id,
+              priority: 'Normal',
+              type: 'INFO'
+            });
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Failed to trigger compliance issue notification:', err.message);
+    }
+
     return issue;
   }
 
