@@ -4,7 +4,7 @@ import { ApiError } from '../../utils/ApiError.js';
 import { HTTP_STATUS } from '../../utils/constants.js';
 
 // Whitelisted body payload fields
-const ALLOWED_FIELDS = ['name', 'description', 'type', 'status', 'color', 'icon', 'sortOrder', 'createdBy', 'updatedBy'];
+const ALLOWED_FIELDS = ['name', 'description', 'type', 'status', 'color', 'icon', 'sortOrder', 'createdBy', 'updatedBy', 'scoreWeight'];
 
 /**
  * Middleware to reject any un-whitelisted fields in the request body (Preventing Mass Assignment)
@@ -42,6 +42,10 @@ export const createCategoryValidation = [
     .toUpperCase()
     .isIn(ALLOWED_CATEGORY_STATUSES)
     .withMessage(`Status must be one of: ${ALLOWED_CATEGORY_STATUSES.join(', ')}`),
+  body('scoreWeight')
+    .optional()
+    .isInt({ min: 0, max: 100 })
+    .withMessage('Score weight must be an integer between 0 and 100'),
   body('color')
     .trim()
     .notEmpty()
@@ -85,6 +89,10 @@ export const updateCategoryValidation = [
     .toUpperCase()
     .isIn(ALLOWED_CATEGORY_STATUSES)
     .withMessage(`Status must be one of: ${ALLOWED_CATEGORY_STATUSES.join(', ')}`),
+  body('scoreWeight')
+    .optional()
+    .isInt({ min: 0, max: 100 })
+    .withMessage('Score weight must be an integer between 0 and 100'),
   body('color')
     .optional()
     .trim()

@@ -222,13 +222,18 @@ export default function Settings() {
         ...(token ? { 'Authorization': `Bearer ${token}` } : {})
       };
 
+      const type = categoryFormData.classification.toUpperCase();
+      const color = type === 'ENVIRONMENTAL' ? '#10B981' : type === 'SOCIAL' ? '#3B82F6' : '#F59E0B';
+
       const response = await fetch('http://localhost:5000/api/v1/categories', {
         method: 'POST',
         headers,
         body: JSON.stringify({
           name: categoryFormData.name,
-          classification: categoryFormData.classification,
+          type,
+          color,
           scoreWeight: parseInt(categoryFormData.weight, 10),
+          status: 'ACTIVE'
         })
       });
 
