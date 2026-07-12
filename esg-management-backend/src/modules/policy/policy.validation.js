@@ -9,9 +9,8 @@ export const createPolicyValidation = [
     .isLength({ min: 3, max: 150 })
     .withMessage('Title must be between 3 and 150 characters'),
   body('policyNumber')
-    .trim()
-    .notEmpty()
-    .withMessage('Policy number is required'),
+    .optional()
+    .trim(),
   body('category')
     .isIn(ALLOWED_POLICY_CATEGORIES)
     .withMessage(`Category must be one of: ${ALLOWED_POLICY_CATEGORIES.join(', ')}`),

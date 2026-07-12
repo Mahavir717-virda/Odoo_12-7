@@ -26,8 +26,13 @@ export class PolicyController {
     // Support file uploads (PDF document)
     const documentUrl = req.file ? req.file.filename : req.body.documentUrl;
 
+    // Auto-generate policyNumber if not provided
+    const policyNumber = req.body.policyNumber ||
+      `POL-${Date.now().toString().slice(-6)}`;
+
     const policy = await policyService.createPolicy({
       ...req.body,
+      policyNumber,
       documentUrl,
       createdBy: adminId,
     });
@@ -41,6 +46,17 @@ export class PolicyController {
     const result = await policyService.listPolicies(req.query);
     res.status(HTTP_STATUS.OK).json(
       new ApiResponse(HTTP_STATUS.OK, result, 'Policies retrieved successfully')
+    );
+  });
+
+  getAcknowledgements = asyncHandler(async (req, res) => {
+    const { PolicyAcknowledgement } = await import('./policyAcknowledgement.model.js');
+    const acks = await PolicyAcknowledgement.find({ isDeleted: { $ne: true } })
+      .populate('policyId', 'title policyNumber')
+      .populate('employeeId', 'name email department')
+      .sort({ acknowledgedAt: -1 });
+    res.status(HTTP_STATUS.OK).json(
+      new ApiResponse(HTTP_STATUS.OK, acks, 'Acknowledgements retrieved successfully')
     );
   });
 

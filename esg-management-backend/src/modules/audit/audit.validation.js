@@ -15,12 +15,16 @@ export const scheduleAuditValidation = [
     .notEmpty()
     .withMessage('Department is required'),
   body('auditor')
-    .isMongoId()
-    .withMessage('Invalid auditor ID format'),
+    .optional()
+    .trim(),
+  body('auditorName')
+    .optional()
+    .trim(),
   body('scheduledDate')
     .isISO8601()
     .withMessage('Scheduled date must be a valid ISO8601 date'),
   body('dueDate')
+    .optional()
     .isISO8601()
     .withMessage('Due date must be a valid ISO8601 date'),
 ];

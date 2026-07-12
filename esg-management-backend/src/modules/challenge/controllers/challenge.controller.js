@@ -93,6 +93,21 @@ export class ChallengeController {
     );
   });
 
+  getParticipants = asyncHandler(async (req, res) => {
+    const { challengeId, status } = req.query;
+    const participants = await challengeService.listParticipants({ challengeId, status });
+    res.status(HTTP_STATUS.OK).json(
+      new ApiResponse(HTTP_STATUS.OK, participants, 'Challenge participants retrieved')
+    );
+  });
+
+  approveParticipant = asyncHandler(async (req, res) => {
+    const participant = await challengeService.approveParticipant(req.params.id);
+    res.status(HTTP_STATUS.OK).json(
+      new ApiResponse(HTTP_STATUS.OK, participant, 'Participant approved and XP awarded')
+    );
+  });
+
   updateProgress = asyncHandler(async (req, res) => {
     validateRequest(req);
     const employeeId = req.user?._id || req.body.employeeId || MOCK_USER_ID;

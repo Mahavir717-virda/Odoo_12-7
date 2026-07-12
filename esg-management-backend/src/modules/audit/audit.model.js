@@ -22,9 +22,9 @@ const auditSchema = new mongoose.Schema(
       trim: true,
     },
     auditor: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      required: [true, 'Auditor reference is required'],
+      type: String,
+      trim: true,
+      default: 'Internal Auditor',
     },
     scheduledDate: {
       type: Date,
@@ -32,7 +32,7 @@ const auditSchema = new mongoose.Schema(
     },
     dueDate: {
       type: Date,
-      required: [true, 'Due date is required'],
+      default: null,
     },
     status: {
       type: String,

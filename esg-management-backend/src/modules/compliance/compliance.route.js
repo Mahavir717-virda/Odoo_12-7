@@ -28,5 +28,6 @@ router.get('/:id/history', getComplianceByIdValidation, controller.getHistory);
 router.put('/:id/assign', assignComplianceValidation, controller.assignIssue);
 router.post('/:id/updates', upload.single('attachment'), progressUpdateValidation, controller.addProgressUpdate);
 router.put('/:id/verify', verifyComplianceValidation, controller.verifyResolution);
+router.put('/:id/resolve', getComplianceByIdValidation, controller.resolveIssue);
 
 export default router;
