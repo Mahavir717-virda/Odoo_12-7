@@ -7,64 +7,63 @@ export function AuthProvider({ children }) {
 
   const isAuthenticated = !!user;
 
-  // Simulate API Login
-  const login = async (email, password) => {
-    // Simulate network delay
-    await new Promise((resolve) => setTimeout(resolve, 800));
-
-    // TODO: Replace with real API call
-    // const response = await fetch('/api/auth/login', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({ email, password })
-    // });
-    // const data = await response.json();
-    // if (!response.ok) throw new Error(data.message);
-
-    // Mock role determination based on email
-    const role = email.toLowerCase().includes('admin') ? 'Admin' : 'Employee';
-    const name = email.split('@')[0].split('.').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' ');
-
-    const loggedInUser = {
-      name: name || 'Demo User',
-      email,
-      role
+  React.useEffect(() => {
+    const checkAuth = async () => {
+      const token = localStorage.getItem('token');
+      if (token) {
+        try {
+          const response = await fetch('http://localhost:5000/api/v1/auth/me', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          const result = await response.json();
+          if (response.ok) {
+            setUser(result.data);
+          } else {
+            localStorage.removeItem('token');
+          }
+        } catch (err) {
+          localStorage.removeItem('token');
+        }
+      }
     };
+    checkAuth();
+  }, []);
 
+  // Real API Login
+  const login = async (email, password) => {
+    const response = await fetch('http://localhost:5000/api/v1/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.message || 'Login failed');
+
+    const loggedInUser = result.data.user;
+    localStorage.setItem('token', result.data.token);
     setUser(loggedInUser);
     return loggedInUser;
   };
 
-  // Simulate API Signup
+  // Real API Signup
   const signup = async (name, email, password, role) => {
-    // Simulate network delay
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    const response = await fetch('http://localhost:5000/api/v1/auth/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, password, role })
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.message || 'Signup failed');
 
-    // TODO: Replace with real API call
-    // const response = await fetch('/api/auth/signup', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({ name, email, password, role })
-    // });
-    // const data = await response.json();
-    // if (!response.ok) throw new Error(data.message);
-
-    const signedUpUser = {
-      name,
-      email,
-      role
-    };
-
+    const signedUpUser = result.data.user;
+    localStorage.setItem('token', result.data.token);
     setUser(signedUpUser);
     return signedUpUser;
   };
 
-  // Simulate API Logout
+  // Real API Logout
   const logout = async () => {
-    // Simulate network delay
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    
-    // TODO: Replace with real API call
+    localStorage.removeItem('token');
     setUser(null);
   };
 

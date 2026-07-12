@@ -11,6 +11,16 @@ import dropdownRouter from '../modules/dropdown/dropdown.route.js';
 import csrRouter from '../modules/csr/csr.route.js';
 import participationRouter from '../modules/participation/participation.route.js';
 import goalRouter from '../modules/sustainability-goal/goal.route.js';
+import challengeRouter from '../modules/challenge/challenge.route.js';
+import badgeRouter from '../modules/badge/badge.route.js';
+import rewardRouter from '../modules/reward/reward.route.js';
+import policyRouter from '../modules/policy/policy.route.js';
+import auditRouter from '../modules/audit/audit.route.js';
+import complianceRouter from '../modules/compliance/compliance.route.js';
+import dashboardRouter from '../modules/dashboard/dashboard.route.js';
+import reportRouter from '../modules/report/report.route.js';
+import notificationRouter from '../modules/notification/notification.route.js';
+import authRouter from '../modules/auth/auth.route.js';
 
 const router = Router();
 
@@ -21,7 +31,19 @@ router.use('/emission-factors', emissionFactorRouter);
 router.use('/product-esg-profiles', productESGProfileRouter);
 router.use('/carbon-transactions', carbonTransactionRouter);
 router.use('/dropdowns', dropdownRouter);
+router.use('/csr', csrRouter);
+router.use('/participations', participationRouter);
+router.use('/challenges', challengeRouter);
 router.use('/sustainability-goals', goalRouter);
+router.use('/badges', badgeRouter);
+router.use('/rewards', rewardRouter);
+router.use('/policies', policyRouter);
+router.use('/audits', auditRouter);
+router.use('/compliances', complianceRouter);
+router.use('/dashboard', dashboardRouter);
+router.use('/reports', reportRouter);
+router.use('/notifications', notificationRouter);
+router.use('/auth', authRouter);
 
 /**
  * GET /api/v1

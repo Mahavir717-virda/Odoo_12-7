@@ -1,0 +1,49 @@
+/**
+ * Challenge Module Constants
+ */
+
+export const CHALLENGE_STATUS = {
+  ACTIVE: 'ACTIVE',
+  INACTIVE: 'INACTIVE',
+};
+
+export const ALLOWED_CHALLENGE_STATUSES = Object.values(CHALLENGE_STATUS);
+
+export const CHALLENGE_DIFFICULTY = {
+  EASY: 'EASY',
+  MEDIUM: 'MEDIUM',
+  HARD: 'HARD',
+};
+
+export const ALLOWED_DIFFICULTIES = Object.values(CHALLENGE_DIFFICULTY);
+
+export const PARTICIPANT_STATUS = {
+  JOINED: 'JOINED',
+  COMPLETED: 'COMPLETED',
+  LEFT: 'LEFT',
+};
+
+export const ALLOWED_PARTICIPANT_STATUSES = Object.values(PARTICIPANT_STATUS);
+
+export const EVIDENCE_STATUS = {
+  PENDING: 'PENDING',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+};
+
+export const ALLOWED_EVIDENCE_STATUSES = Object.values(EVIDENCE_STATUS);
+
+export const VERIFICATION_STATUS = {
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+};
+
+export const ALLOWED_VERIFICATION_STATUSES = Object.values(VERIFICATION_STATUS);
+
+export const REDEMPTION_STATUS = {
+  PENDING: 'PENDING',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+};
+
+export const ALLOWED_REDEMPTION_STATUSES = Object.values(REDEMPTION_STATUS);
