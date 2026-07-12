@@ -1,0 +1,20 @@
+/**
+ * Category Module Constants
+ */
+
+export const CATEGORY_TYPE = {
+  CSR_ACTIVITY: 'CSR_ACTIVITY',
+  CHALLENGE: 'CHALLENGE',
+  ENVIRONMENT: 'ENVIRONMENT',
+  GOVERNANCE: 'GOVERNANCE',
+  GENERAL: 'GENERAL',
+};
+
+export const ALLOWED_CATEGORY_TYPES = Object.values(CATEGORY_TYPE);
+
+export const CATEGORY_STATUS = {
+  ACTIVE: 'ACTIVE',
+  INACTIVE: 'INACTIVE',
+};
+
+export const ALLOWED_CATEGORY_STATUSES = Object.values(CATEGORY_STATUS);
