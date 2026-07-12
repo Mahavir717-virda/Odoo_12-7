@@ -319,6 +319,10 @@ export class ChallengeService {
     return await challengeRepository.getEmployeeBadges(employeeId);
   }
 
+  async listBadges() {
+    return await challengeRepository.findAllBadges();
+  }
+
   // ==========================================
   // REWARDS SERVICES
   // ==========================================

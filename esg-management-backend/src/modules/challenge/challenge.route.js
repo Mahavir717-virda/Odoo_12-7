@@ -33,12 +33,6 @@ router
   .post(createChallengeValidation, controller.createChallenge)
   .get(queryChallengesValidation, controller.getChallenges);
 
-router
-  .route('/:id')
-  .get(getChallengeByIdValidation, controller.getChallengeById)
-  .put(updateChallengeValidation, controller.updateChallenge)
-  .delete(getChallengeByIdValidation, controller.deleteChallenge);
-
 // Joining & Progress routes
 router.post('/join', joinChallengeValidation, controller.joinChallenge);
 router.post('/progress', controller.updateProgress);
@@ -53,7 +47,10 @@ router.get('/pending-evidence', controller.getPendingSubmissions);
 router.post('/verify-evidence/:id', verifyEvidenceValidation, controller.verifyEvidence);
 
 // Badge routes
-router.post('/badges', createBadgeValidation, controller.createBadge);
+router
+  .route('/badges')
+  .post(createBadgeValidation, controller.createBadge)
+  .get(controller.getBadges);
 router.get('/my-badges', controller.getEmployeeBadges);
 
 // Reward routes
@@ -63,5 +60,11 @@ router
   .get(controller.getRewards);
 
 router.post('/rewards/redeem', redeemRewardValidation, controller.redeemReward);
+
+router
+  .route('/:id')
+  .get(getChallengeByIdValidation, controller.getChallengeById)
+  .put(updateChallengeValidation, controller.updateChallenge)
+  .delete(getChallengeByIdValidation, controller.deleteChallenge);
 
 export default router;
