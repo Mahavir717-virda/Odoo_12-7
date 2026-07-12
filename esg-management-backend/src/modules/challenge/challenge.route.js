@@ -27,6 +27,12 @@ router
   .post(createCategoryValidation, controller.createCategory)
   .get(controller.getCategories);
 
+// Challenge CRUD routes
+router
+  .route('/')
+  .post(createChallengeValidation, controller.createChallenge)
+  .get(queryChallengesValidation, controller.getChallenges);
+
 // Joining & Progress routes
 router.post('/join', joinChallengeValidation, controller.joinChallenge);
 router.post('/progress', controller.updateProgress);
@@ -41,7 +47,10 @@ router.get('/pending-evidence', controller.getPendingSubmissions);
 router.post('/verify-evidence/:id', verifyEvidenceValidation, controller.verifyEvidence);
 
 // Badge routes
-router.post('/badges', createBadgeValidation, controller.createBadge);
+router
+  .route('/badges')
+  .post(createBadgeValidation, controller.createBadge)
+  .get(controller.getBadges);
 router.get('/my-badges', controller.getEmployeeBadges);
 
 // Reward routes

@@ -176,6 +176,13 @@ export class ChallengeController {
     );
   });
 
+  getBadges = asyncHandler(async (req, res) => {
+    const badges = await challengeService.listBadges();
+    res.status(HTTP_STATUS.OK).json(
+      new ApiResponse(HTTP_STATUS.OK, badges, 'Badge definitions retrieved successfully')
+    );
+  });
+
   // ==========================================
   // REWARDS CONTROLLERS
   // ==========================================
