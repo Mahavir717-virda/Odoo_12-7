@@ -79,6 +79,21 @@ export class ComplianceController {
     );
   });
 
+  resolveIssue = asyncHandler(async (req, res) => {
+    validateRequest(req);
+    const adminId = req.user?._id || MOCK_ADMIN_ID;
+    const { Compliance } = await import('./compliance.model.js');
+    const updated = await Compliance.findByIdAndUpdate(
+      req.params.id,
+      { $set: { status: 'Resolved', verifiedBy: adminId, verifiedAt: new Date() } },
+      { new: true }
+    );
+    if (!updated) throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Compliance issue not found');
+    res.status(HTTP_STATUS.OK).json(
+      new ApiResponse(HTTP_STATUS.OK, updated, 'Compliance issue marked as Resolved')
+    );
+  });
+
   getReportsSummary = asyncHandler(async (req, res) => {
     const summary = await complianceService.getReports();
     res.status(HTTP_STATUS.OK).json(

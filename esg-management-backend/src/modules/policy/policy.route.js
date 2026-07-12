@@ -13,6 +13,7 @@ const router = Router();
 const controller = new PolicyController();
 
 router.get('/reports/summary', controller.getReportsSummary);
+router.get('/acknowledgements', controller.getAcknowledgements);
 
 router
   .route('/')

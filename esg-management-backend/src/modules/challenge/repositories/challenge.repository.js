@@ -108,6 +108,24 @@ export class ChallengeRepository {
     return await ChallengeParticipant.countDocuments({ challengeId, status: 'JOINED', isDeleted: false });
   }
 
+  async findAllParticipants({ challengeId, status } = {}) {
+    const query = { isDeleted: false };
+    if (challengeId) query.challengeId = challengeId;
+    if (status) query.status = status;
+    return await ChallengeParticipant.find(query)
+      .populate('employeeId', 'name email department')
+      .populate('challengeId', 'title xpReward')
+      .sort({ joinedAt: -1 });
+  }
+
+  async completeParticipantById(participantId) {
+    return await ChallengeParticipant.findOneAndUpdate(
+      { _id: participantId, isDeleted: false },
+      { $set: { status: 'COMPLETED' } },
+      { new: true }
+    );
+  }
+
   async updateParticipantStatus(employeeId, challengeId, status) {
     return await ChallengeParticipant.findOneAndUpdate(
       { employeeId, challengeId, isDeleted: false },

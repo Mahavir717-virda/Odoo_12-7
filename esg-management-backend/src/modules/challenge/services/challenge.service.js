@@ -102,6 +102,31 @@ export class ChallengeService {
     return participant;
   }
 
+  async listParticipants(filters = {}) {
+    return await challengeRepository.findAllParticipants(filters);
+  }
+
+  async approveParticipant(participantId) {
+    const participant = await challengeRepository.completeParticipantById(participantId);
+    if (!participant) {
+      throw new ApiError(HTTP_STATUS.NOT_FOUND, 'Participant record not found');
+    }
+    // Award XP/points when admin approves manually
+    const challenge = await challengeRepository.findChallengeById(participant.challengeId);
+    if (challenge) {
+      await challengeRepository.updateUserBalance(participant.employeeId, challenge.xpReward, challenge.pointsReward);
+      await challengeRepository.createXPTransaction({
+        employeeId: participant.employeeId,
+        challengeId: participant.challengeId,
+        xpEarned: challenge.xpReward,
+        pointsEarned: challenge.pointsReward,
+        reason: `Challenge approved: ${challenge.title}`,
+      });
+      await this.checkAndAwardBadges(participant.employeeId);
+    }
+    return participant;
+  }
+
   async completeChallengeWithoutEvidence(employeeId, challengeId, challenge) {
     await challengeRepository.updateParticipantStatus(employeeId, challengeId, PARTICIPANT_STATUS.COMPLETED);
     await challengeRepository.createOrUpdateProgress(employeeId, challengeId, 1, 1);

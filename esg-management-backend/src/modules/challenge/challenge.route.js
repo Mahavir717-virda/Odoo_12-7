@@ -43,6 +43,10 @@ router
 router.post('/join', joinChallengeValidation, controller.joinChallenge);
 router.post('/progress', controller.updateProgress);
 
+// Challenge Participants
+router.get('/participants', controller.getParticipants);
+router.patch('/participants/:id/complete', controller.approveParticipant);
+
 // Evidence & Verification routes
 router.post('/submit-evidence', upload.single('evidence'), submitEvidenceValidation, controller.submitEvidence);
 router.get('/pending-evidence', controller.getPendingSubmissions);
